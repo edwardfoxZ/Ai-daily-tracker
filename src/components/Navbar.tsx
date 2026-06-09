@@ -17,7 +17,7 @@ export default function Navbar({ currentDate, onProfileClick, onFutureClick }: N
               <span className="text-white text-lg">✧</span>
             </div>
             <div>
-              <div className="font-semibold tracking-[-1.5px] text-2xl">AETHER</div>
+              <div className="font-semibold tracking-[-1.5px] text-2xl">ESTHER</div>
               <div className="text-[10px] text-white/40 -mt-1">AI ROUTINE 2026</div>
             </div>
           </div>

@@ -20,7 +20,7 @@ export default function ProductivityChart({ history, todayCompletion }: Producti
         <div className="font-medium">14-Day Productivity</div>
         <div className="text-xs px-3 py-px rounded-full bg-emerald-500/10 text-emerald-400">GROWTH</div>
       </div>
-      <div className="h-52 -mx-2">
+      <div className="h-52 -mx-2 overflow-hidden">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="2 2" stroke="#ffffff10" />

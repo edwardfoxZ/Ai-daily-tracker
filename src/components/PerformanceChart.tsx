@@ -26,7 +26,7 @@ export default function PerformanceChart({ tasks }: PerformanceChartProps) {
       <div className="font-medium mb-8 flex items-center gap-3">
         Crucial Task Performance <span className="text-xs text-white/40">BY PRIORITY</span>
       </div>
-      <div className="h-72">
+      <div className="h-72 overflow-hidden">
         <ResponsiveContainer>
           <BarChart data={data}>
             <CartesianGrid stroke="#ffffff10" />
