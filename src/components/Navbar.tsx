@@ -2,12 +2,16 @@ import { User, BarChart3, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface NavbarProps {
-  currentDate: string;
+  currentDate?: string;
   onProfileClick: () => void;
   onFutureClick: () => void;
 }
 
-export default function Navbar({ currentDate, onProfileClick, onFutureClick }: NavbarProps) {
+export default function Navbar({ 
+  currentDate = new Date().toISOString(), 
+  onProfileClick, 
+  onFutureClick 
+}: NavbarProps) {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[#0a0a0f]/90 backdrop-blur-2xl">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">

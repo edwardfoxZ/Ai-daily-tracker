@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+.glow-purple {
+  text-shadow: 0 0 20px rgba(167, 139, 250, 0.8),
+               0 0 40px rgba(139, 92, 246, 0.6);
+}
+
+.glow-button {
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.5);
+}
+
+.glow-button:hover {
+  box-shadow: 0 0 30px rgba(167, 139, 250, 0.8);
+  transform: translateY(-2px);
+}

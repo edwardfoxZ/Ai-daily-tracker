@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { User, Mail } from 'lucide-react';
+import WalletConnect from './WalletConnect';
 
 export default function ProfileSetup({ address }: { address: string }) {
   const [username, setUsername] = useState('');
