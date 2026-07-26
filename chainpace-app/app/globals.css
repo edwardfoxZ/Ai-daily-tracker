@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: #9b5de5;
+  color: #fff;
+}
+
+body {
+  @apply bg-bg text-ink dark:bg-bg-dark dark:text-ink-dark font-body transition-colors duration-300;
+}
