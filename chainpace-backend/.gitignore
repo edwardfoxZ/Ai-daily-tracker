@@ -1,5 +1,0 @@
-# .gitignore — add these lines
-.env
-.env.local
-.env*.local
-chainpace.db
