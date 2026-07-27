@@ -5,7 +5,7 @@ import "net/http"
 // corsMiddleware allows your Next.js dev server (localhost:3000) to call this
 // API with credentials (cookies). Update allowedOrigin for production.
 func corsMiddleware(next http.Handler) http.Handler {
-	allowedOrigin := "https://esthertrackerai.vercel.app/"
+	allowedOrigin := "https://esthertrackerai.vercel.app"
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
