@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useWeb3 } from "@/lib/useWeb3";
+import { useUser } from "@/lib/user-context";
 import { signup, login, walletAuth, checkUsername, ApiError } from "@/lib/api";
 
 type Step =
@@ -19,6 +20,7 @@ type AuthMode = "in" | "up";
 export default function LoginPage() {
   const router = useRouter();
   const web3 = useWeb3();
+  const { refetch } = useUser();
 
   const [authMode, setAuthMode] = useState<AuthMode>("in");
   const [step, setStep] = useState<Step>("method");
@@ -26,7 +28,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [username, setUsername] = useState("");
-  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
+    null,
+  );
 
   const [identifier, setIdentifier] = useState(""); // email or username, sign-in
   const [email, setEmail] = useState("");
@@ -77,10 +81,13 @@ export default function LoginPage() {
         if (res.isNew) {
           setStep("wallet-username");
         } else {
+          await refetch();
           router.push("/dashboard");
         }
       } catch (err: any) {
-        setError(err instanceof ApiError ? err.message : "Failed to verify wallet");
+        setError(
+          err instanceof ApiError ? err.message : "Failed to verify wallet",
+        );
       } finally {
         setLoading(false);
       }
@@ -93,10 +100,16 @@ export default function LoginPage() {
     resetError();
     setLoading(true);
     try {
-      await walletAuth({ walletAddress: web3.address, username: username.trim() });
+      await walletAuth({
+        walletAddress: web3.address,
+        username: username.trim(),
+      });
+      await refetch();
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err instanceof ApiError ? err.message : "Failed to create account");
+      setError(
+        err instanceof ApiError ? err.message : "Failed to create account",
+      );
     } finally {
       setLoading(false);
     }
@@ -107,10 +120,15 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (isUp) {
-        await signup({ username: username.trim(), email: email.trim(), password });
+        await signup({
+          username: username.trim(),
+          email: email.trim(),
+          password,
+        });
         setStep("connect-nudge");
       } else {
         await login({ identifier: identifier.trim(), password });
+        await refetch();
         router.push("/dashboard");
       }
     } catch (err: any) {
@@ -125,10 +143,16 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (isUp) {
-        await signup({ username: username.trim(), phone: phone.trim(), password });
+        await signup({
+          username: username.trim(),
+          phone: phone.trim(),
+          password,
+        });
+        await refetch();
         setStep("connect-nudge");
       } else {
         await login({ identifier: identifier.trim(), password });
+        await refetch();
         router.push("/dashboard");
       }
     } catch (err: any) {
@@ -152,7 +176,9 @@ export default function LoginPage() {
           <div className="relative h-8 w-8 rounded-[9px] bg-gradient-to-br from-violet-bright to-violet-deep shadow-glow">
             <div className="absolute inset-2 rounded bg-elevated dark:bg-elevated-dark" />
           </div>
-          <span className="font-display text-lg font-bold tracking-tight">Chainpace</span>
+          <span className="font-display text-lg font-bold tracking-tight">
+            Chainpace
+          </span>
         </div>
 
         <div className="z-10 max-w-[440px]">
@@ -164,8 +190,8 @@ export default function LoginPage() {
             Your routine, verified. Your streak, shared.
           </h1>
           <p className="text-[15px] leading-relaxed text-dim dark:text-dim-dark">
-            Connect your wallet, log your work, and let AI check it against
-            real clinical research — then let your circle hold you to it.
+            Connect your wallet, log your work, and let AI check it against real
+            clinical research — then let your circle hold you to it.
           </p>
         </div>
 
@@ -179,11 +205,18 @@ export default function LoginPage() {
             { top: "86%", left: "50%" },
             { top: "50%", left: "12%" },
           ].map((pos, i) => (
-            <div key={i} className="absolute h-[9px] w-[9px] rounded-full bg-mint shadow-[0_0_10px_#5EEAD4]" style={pos} />
+            <div
+              key={i}
+              className="absolute h-[9px] w-[9px] rounded-full bg-mint shadow-[0_0_10px_#5EEAD4]"
+              style={pos}
+            />
           ))}
           <div
             className="relative z-10 flex h-[84px] w-[84px] animate-pulse-glow items-center justify-center rounded-full shadow-glow-strong"
-            style={{ backgroundImage: "radial-gradient(circle at 35% 30%, #B98CF0, #6D2FC7 70%)" }}
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 35% 30%, #B98CF0, #6D2FC7 70%)",
+            }}
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-[34px] w-[34px]">
               <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="#fff" />
@@ -192,8 +225,15 @@ export default function LoginPage() {
         </div>
 
         <div className="z-10 flex flex-wrap gap-2.5">
-          {["14-day streak · verified", "ML-scored consistency", "Wallet-linked identity"].map((chip) => (
-            <div key={chip} className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 font-mono text-[11px] text-dim dark:border-border-dark dark:bg-surface-dark dark:text-dim-dark">
+          {[
+            "14-day streak · verified",
+            "ML-scored consistency",
+            "Wallet-linked identity",
+          ].map((chip) => (
+            <div
+              key={chip}
+              className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 font-mono text-[11px] text-dim dark:border-border-dark dark:bg-surface-dark dark:text-dim-dark"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-violet-bright" />
               {chip}
             </div>
@@ -218,13 +258,19 @@ export default function LoginPage() {
             <div>
               <div className="mb-6 flex gap-1.5">
                 <button
-                  onClick={() => { setAuthMode("in"); resetError(); }}
+                  onClick={() => {
+                    setAuthMode("in");
+                    resetError();
+                  }}
                   className={`flex-1 border-b-2 pb-2.5 text-[12.5px] font-semibold transition-colors ${!isUp ? "border-violet-dark text-ink dark:text-ink-dark" : "border-border text-dim dark:border-border-dark dark:text-dim-dark"}`}
                 >
                   Sign in
                 </button>
                 <button
-                  onClick={() => { setAuthMode("up"); resetError(); }}
+                  onClick={() => {
+                    setAuthMode("up");
+                    resetError();
+                  }}
                   className={`flex-1 border-b-2 pb-2.5 text-[12.5px] font-semibold transition-colors ${isUp ? "border-violet-dark text-ink dark:text-ink-dark" : "border-border text-dim dark:border-border-dark dark:text-dim-dark"}`}
                 >
                   Create account
@@ -247,48 +293,96 @@ export default function LoginPage() {
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-white/15">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                      <rect x="2" y="6" width="20" height="13" rx="3" stroke="#fff" strokeWidth="1.6" />
+                      <rect
+                        x="2"
+                        y="6"
+                        width="20"
+                        height="13"
+                        rx="3"
+                        stroke="#fff"
+                        strokeWidth="1.6"
+                      />
                       <path d="M2 10h20" stroke="#fff" strokeWidth="1.6" />
                       <circle cx="17" cy="14.5" r="1.3" fill="#fff" />
                     </svg>
                   </span>
                   <span className="flex-1">
-                    <span className="block text-sm font-medium">Continue with wallet</span>
-                    <small className="block text-[11.5px] font-normal text-white/75">MetaMask (extend via useWeb3 for others)</small>
+                    <span className="block text-sm font-medium">
+                      Continue with wallet
+                    </span>
+                    <small className="block text-[11.5px] font-normal text-white/75">
+                      MetaMask (extend via useWeb3 for others)
+                    </small>
                   </span>
                 </button>
 
                 <button
-                  onClick={() => { setStep("email-form"); resetError(); }}
+                  onClick={() => {
+                    setStep("email-form");
+                    resetError();
+                  }}
                   className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface p-3.5 text-left transition hover:-translate-y-0.5 hover:border-violet-dark hover:shadow-glow dark:border-border-dark dark:bg-surface-dark"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-bordersoft bg-surface2 dark:border-bordersoft-dark dark:bg-surface2-dark">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-                      <path d="M3 6h18v12H3z" stroke="currentColor" strokeWidth="1.6" />
-                      <path d="M3 7l9 6 9-6" stroke="currentColor" strokeWidth="1.6" />
+                      <path
+                        d="M3 6h18v12H3z"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                      />
+                      <path
+                        d="M3 7l9 6 9-6"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                      />
                     </svg>
                   </span>
-                  <span className="flex-1 text-sm font-medium">Continue with email</span>
+                  <span className="flex-1 text-sm font-medium">
+                    Continue with email
+                  </span>
                 </button>
 
                 <button
-                  onClick={() => { setStep("phone-form"); resetError(); }}
+                  onClick={() => {
+                    setStep("phone-form");
+                    resetError();
+                  }}
                   className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface p-3.5 text-left transition hover:-translate-y-0.5 hover:border-violet-dark hover:shadow-glow dark:border-border-dark dark:bg-surface-dark"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-bordersoft bg-surface2 dark:border-bordersoft-dark dark:bg-surface2-dark">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <rect x="6" y="2" width="12" height="20" rx="2" stroke="currentColor" strokeWidth="1.6" />
-                      <path d="M11 18h2" stroke="currentColor" strokeWidth="1.6" />
+                      <rect
+                        x="6"
+                        y="2"
+                        width="12"
+                        height="20"
+                        rx="2"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                      />
+                      <path
+                        d="M11 18h2"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                      />
                     </svg>
                   </span>
-                  <span className="flex-1 text-sm font-medium">Continue with phone</span>
+                  <span className="flex-1 text-sm font-medium">
+                    Continue with phone
+                  </span>
                 </button>
               </div>
 
               <p className="mt-6 text-center text-[12.5px] text-faint dark:text-faint-dark">
                 By continuing you agree to the{" "}
-                <a className="cursor-pointer font-medium text-violet-bright hover:underline">Terms</a> and{" "}
-                <a className="cursor-pointer font-medium text-violet-bright hover:underline">Privacy Policy</a>.
+                <a className="cursor-pointer font-medium text-violet-bright hover:underline">
+                  Terms
+                </a>{" "}
+                and{" "}
+                <a className="cursor-pointer font-medium text-violet-bright hover:underline">
+                  Privacy Policy
+                </a>
+                .
               </p>
             </div>
           )}
@@ -304,10 +398,21 @@ export default function LoginPage() {
               <div className="flex flex-col items-center pb-1.5 pt-5 text-center">
                 <div
                   className="mb-4.5 flex h-16 w-16 animate-pulse-glow-fast items-center justify-center rounded-full shadow-glow-strong"
-                  style={{ backgroundImage: "radial-gradient(circle at 35% 30%, #B98CF0, #6D2FC7 70%)" }}
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(circle at 35% 30%, #B98CF0, #6D2FC7 70%)",
+                  }}
                 >
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-                    <rect x="2" y="6" width="20" height="13" rx="3" stroke="#fff" strokeWidth="1.6" />
+                    <rect
+                      x="2"
+                      y="6"
+                      width="20"
+                      height="13"
+                      rx="3"
+                      stroke="#fff"
+                      strokeWidth="1.6"
+                    />
                     <path d="M2 10h20" stroke="#fff" strokeWidth="1.6" />
                   </svg>
                 </div>
@@ -315,13 +420,15 @@ export default function LoginPage() {
                   {web3.isConnecting
                     ? "Waiting for signature in your wallet…"
                     : loading
-                    ? "Verifying wallet with Chainpace…"
-                    : web3.isConnected
-                    ? "Wallet connected."
-                    : "Connecting…"}
+                      ? "Verifying wallet with Chainpace…"
+                      : web3.isConnected
+                        ? "Wallet connected."
+                        : "Connecting…"}
                 </div>
                 <div className="font-mono text-xs text-faint dark:text-faint-dark">
-                  {web3.address ? `${web3.address.slice(0, 6)}...${web3.address.slice(-4)}` : "Approve the connection request in your wallet"}
+                  {web3.address
+                    ? `${web3.address.slice(0, 6)}...${web3.address.slice(-4)}`
+                    : "Approve the connection request in your wallet"}
                 </div>
               </div>
             </div>
@@ -332,15 +439,21 @@ export default function LoginPage() {
               <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-mint/25 bg-mint/10 px-2.5 py-1 font-mono text-[11px] text-mint">
                 ✓ Wallet connected
               </span>
-              <h2 className="mb-1.5 font-display text-[26px] font-semibold tracking-tight">Choose your username</h2>
+              <h2 className="mb-1.5 font-display text-[26px] font-semibold tracking-tight">
+                Choose your username
+              </h2>
               <p className="mb-7 text-[13.5px] text-dim dark:text-dim-dark">
                 <span className="font-mono text-faint dark:text-faint-dark">
-                  {web3.address ? `${web3.address.slice(0, 6)}...${web3.address.slice(-4)}` : ""}
+                  {web3.address
+                    ? `${web3.address.slice(0, 6)}...${web3.address.slice(-4)}`
+                    : ""}
                 </span>{" "}
                 — this is how your circle will find you.
               </p>
               <div className="relative mb-4">
-                <label className="mb-1.5 block text-[12.5px] font-semibold text-dim dark:text-dim-dark">Username</label>
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-dim dark:text-dim-dark">
+                  Username
+                </label>
                 <input
                   type="text"
                   placeholder="e.g. morning_marcus"
@@ -349,14 +462,18 @@ export default function LoginPage() {
                   className="w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm outline-none transition focus:border-violet-dark focus:ring-4 focus:ring-violet-dark/15 dark:border-border-dark dark:bg-surface-dark"
                 />
                 {usernameAvailable !== null && (
-                  <span className={`absolute right-3 top-9 font-mono text-[11px] ${usernameAvailable ? "text-mint" : "text-coral"}`}>
+                  <span
+                    className={`absolute right-3 top-9 font-mono text-[11px] ${usernameAvailable ? "text-mint" : "text-coral"}`}
+                  >
                     {usernameAvailable ? "✓ available" : "✕ taken"}
                   </span>
                 )}
               </div>
               <button
                 onClick={submitWalletUsername}
-                disabled={loading || !username.trim() || usernameAvailable === false}
+                disabled={
+                  loading || !username.trim() || usernameAvailable === false
+                }
                 className="mt-1.5 w-full rounded-xl bg-gradient-to-br from-violet-bright to-violet-deep py-3.5 text-[14.5px] font-semibold text-white shadow-glow transition hover:shadow-glow-strong disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? "Creating account…" : "Enter Chainpace"}
@@ -376,19 +493,50 @@ export default function LoginPage() {
                 {isUp ? "Sign up with email" : "Sign in with email"}
               </h2>
               <p className="mb-6 text-[13.5px] text-dim dark:text-dim-dark">
-                {isUp ? "Choose a username and password to get started." : "Welcome back — enter your details to continue."}
+                {isUp
+                  ? "Choose a username and password to get started."
+                  : "Welcome back — enter your details to continue."}
               </p>
 
               {isUp ? (
                 <>
-                  <Field label="Username" placeholder="e.g. morning_marcus" value={username} onChange={setUsername} />
-                  <Field label="Email" type="email" placeholder="you@example.com" value={email} onChange={setEmail} />
-                  <Field label="Password" type="password" placeholder="••••••••••" value={password} onChange={setPassword} hint="Minimum 8 characters." />
+                  <Field
+                    label="Username"
+                    placeholder="e.g. morning_marcus"
+                    value={username}
+                    onChange={setUsername}
+                  />
+                  <Field
+                    label="Email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={setEmail}
+                  />
+                  <Field
+                    label="Password"
+                    type="password"
+                    placeholder="••••••••••"
+                    value={password}
+                    onChange={setPassword}
+                    hint="Minimum 8 characters."
+                  />
                 </>
               ) : (
                 <>
-                  <Field label="Email or username" placeholder="you@example.com" value={identifier} onChange={setIdentifier} />
-                  <Field label="Password" type="password" placeholder="••••••••••" value={password} onChange={setPassword} />
+                  <Field
+                    label="Email or username"
+                    placeholder="you@example.com"
+                    value={identifier}
+                    onChange={setIdentifier}
+                  />
+                  <Field
+                    label="Password"
+                    type="password"
+                    placeholder="••••••••••"
+                    value={password}
+                    onChange={setPassword}
+                  />
                 </>
               )}
 
@@ -403,7 +551,10 @@ export default function LoginPage() {
               {!isUp && (
                 <p className="mt-5 text-center text-[12.5px] text-faint dark:text-faint-dark">
                   New here?{" "}
-                  <span onClick={() => setAuthMode("up")} className="cursor-pointer font-medium text-violet-bright hover:underline">
+                  <span
+                    onClick={() => setAuthMode("up")}
+                    className="cursor-pointer font-medium text-violet-bright hover:underline"
+                  >
                     Create an account
                   </span>
                 </p>
@@ -423,19 +574,50 @@ export default function LoginPage() {
                 {isUp ? "Sign up with phone" : "Sign in with phone"}
               </h2>
               <p className="mb-6 text-[13.5px] text-dim dark:text-dim-dark">
-                {isUp ? "Choose a username and password to get started." : "Welcome back — enter your details to continue."}
+                {isUp
+                  ? "Choose a username and password to get started."
+                  : "Welcome back — enter your details to continue."}
               </p>
 
               {isUp ? (
                 <>
-                  <Field label="Username" placeholder="e.g. morning_marcus" value={username} onChange={setUsername} />
-                  <Field label="Phone number" type="tel" placeholder="+1 (555) 000-0000" value={phone} onChange={setPhone} />
-                  <Field label="Password" type="password" placeholder="••••••••••" value={password} onChange={setPassword} />
+                  <Field
+                    label="Username"
+                    placeholder="e.g. morning_marcus"
+                    value={username}
+                    onChange={setUsername}
+                  />
+                  <Field
+                    label="Phone number"
+                    type="tel"
+                    placeholder="+1 (555) 000-0000"
+                    value={phone}
+                    onChange={setPhone}
+                  />
+                  <Field
+                    label="Password"
+                    type="password"
+                    placeholder="••••••••••"
+                    value={password}
+                    onChange={setPassword}
+                  />
                 </>
               ) : (
                 <>
-                  <Field label="Phone number" type="tel" placeholder="+1 (555) 000-0000" value={identifier} onChange={setIdentifier} />
-                  <Field label="Password" type="password" placeholder="••••••••••" value={password} onChange={setPassword} />
+                  <Field
+                    label="Phone number"
+                    type="tel"
+                    placeholder="+1 (555) 000-0000"
+                    value={identifier}
+                    onChange={setIdentifier}
+                  />
+                  <Field
+                    label="Password"
+                    type="password"
+                    placeholder="••••••••••"
+                    value={password}
+                    onChange={setPassword}
+                  />
                 </>
               )}
 
@@ -449,7 +631,10 @@ export default function LoginPage() {
 
               <p className="mt-5 text-center text-[12.5px] text-faint dark:text-faint-dark">
                 New here?{" "}
-                <span onClick={() => setAuthMode("up")} className="cursor-pointer font-medium text-violet-bright hover:underline">
+                <span
+                  onClick={() => setAuthMode("up")}
+                  className="cursor-pointer font-medium text-violet-bright hover:underline"
+                >
                   Create an account
                 </span>
               </p>
@@ -461,9 +646,12 @@ export default function LoginPage() {
               <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-mint/25 bg-mint/10 px-2.5 py-1 font-mono text-[11px] text-mint">
                 ✓ Account created
               </span>
-              <h2 className="mb-1.5 font-display text-[26px] font-semibold tracking-tight">Unlock the full experience</h2>
+              <h2 className="mb-1.5 font-display text-[26px] font-semibold tracking-tight">
+                Unlock the full experience
+              </h2>
               <p className="mb-6 text-[13.5px] leading-relaxed text-dim dark:text-dim-dark">
-                Connect a wallet to verify your habit proofs on-chain, join circles, and appear on leaderboards. You can skip this for now.
+                Connect a wallet to verify your habit proofs on-chain, join
+                circles, and appear on leaderboards. You can skip this for now.
               </p>
               <button
                 onClick={goWallet}
@@ -471,17 +659,32 @@ export default function LoginPage() {
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-white/15">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <rect x="2" y="6" width="20" height="13" rx="3" stroke="#fff" strokeWidth="1.6" />
+                    <rect
+                      x="2"
+                      y="6"
+                      width="20"
+                      height="13"
+                      rx="3"
+                      stroke="#fff"
+                      strokeWidth="1.6"
+                    />
                     <path d="M2 10h20" stroke="#fff" strokeWidth="1.6" />
                   </svg>
                 </span>
                 <span className="flex-1">
-                  <span className="block text-sm font-medium">Connect wallet now</span>
-                  <small className="block text-[11.5px] font-normal text-white/75">Recommended</small>
+                  <span className="block text-sm font-medium">
+                    Connect wallet now
+                  </span>
+                  <small className="block text-[11.5px] font-normal text-white/75">
+                    Recommended
+                  </small>
                 </span>
               </button>
               <button
-                onClick={() => router.push("/dashboard")}
+                onClick={async () => {
+                  await refetch();
+                  router.push("/dashboard");
+                }}
                 className="w-full rounded-xl border border-border py-3 text-[14.5px] font-semibold text-dim transition hover:border-violet-dark hover:text-ink dark:border-border-dark dark:text-dim-dark dark:hover:text-ink-dark"
               >
                 Skip for now
@@ -511,7 +714,9 @@ function Field({
 }) {
   return (
     <div className="mb-4">
-      <label className="mb-1.5 block text-[12.5px] font-semibold text-dim dark:text-dim-dark">{label}</label>
+      <label className="mb-1.5 block text-[12.5px] font-semibold text-dim dark:text-dim-dark">
+        {label}
+      </label>
       <input
         type={type}
         placeholder={placeholder}
@@ -519,7 +724,11 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm outline-none transition focus:border-violet-dark focus:ring-4 focus:ring-violet-dark/15 dark:border-border-dark dark:bg-surface-dark"
       />
-      {hint && <div className="mt-1.5 text-[11.5px] text-faint dark:text-faint-dark">{hint}</div>}
+      {hint && (
+        <div className="mt-1.5 text-[11.5px] text-faint dark:text-faint-dark">
+          {hint}
+        </div>
+      )}
     </div>
   );
 }
