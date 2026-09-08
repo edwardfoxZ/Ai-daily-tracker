@@ -15,7 +15,7 @@ export default defineConfig({
       production: {
         version: "0.8.24",
         settings: {
-          evmVersion: "london",
+          evmVersion: "cancun",
           optimizer: { enabled: true, runs: 200 },
         },
       },
@@ -30,19 +30,32 @@ export default defineConfig({
       type: "edr-simulated",
       chainType: "op",
     },
+    ganache: {
+      type: "http",
+      chainType: "l1",
+      url: "http://127.0.0.1:7545",
+      chainId: 1337,
+      accounts: [configVariable("GANACHE_PRIVATE_KEY")],
+    },
+    seiTestnet: {
+      type: "http",
+      chainType: "l1",
+      chainId: 1328,
+      url: "https://evm-rpc-testnet.sei-apis.com",
+      accounts: [configVariable("SEI_PRIVATE_KEY")],
+    },
+    sei: {
+      type: "http",
+      chainType: "l1",
+      chainId: 1329,
+      url: "https://evm-rpc.sei-apis.com",
+      accounts: [configVariable("SEI_PRIVATE_KEY")],
+    },
     sepolia: {
       type: "http",
       chainType: "l1",
       url: configVariable("SEPOLIA_RPC_URL"),
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
-    },
-    ganache: {
-      type: "http",
-      url: "http://127.0.0.1:7545",
-      chainId: 1337,
-      accounts: [
-        "0xc7b975c84e9b11e14540c7fbc68a0dcb8d2d26865bf377c54a7eca6ecec993bc",
-      ],
     },
   },
 });
