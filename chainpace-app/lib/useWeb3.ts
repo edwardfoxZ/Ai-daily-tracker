@@ -3,10 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BrowserProvider, JsonRpcSigner, formatEther } from "ethers";
 
-/* ---------------------------------------------------
-   Types
---------------------------------------------------- */
-
 export type ChainKind = "evm" | "solana";
 
 export type WalletId =
@@ -20,7 +16,7 @@ export interface ChainInfo {
   id: number | string;
   kind: ChainKind;
   name: string;
-  hexId?: string; // for EVM chains
+  hexId?: string;
   rpcUrl?: string;
   explorerUrl?: string;
   nativeCurrency?: { name: string; symbol: string; decimals: number };
@@ -90,6 +86,32 @@ export const CHAINS: Record<string, ChainInfo> = {
     explorerUrl: "https://snowtrace.io",
     nativeCurrency: { name: "AVAX", symbol: "AVAX", decimals: 18 },
   },
+  seiTestnet: {
+    id: 1328,
+    kind: "evm",
+    name: "Sei Testnet",
+    hexId: "0x530",
+    rpcUrl: "https://evm-rpc-testnet.sei-apis.com",
+    explorerUrl: "https://testnet.seiscan.io",
+    nativeCurrency: { name: "SEI", symbol: "SEI", decimals: 18 },
+  },
+  sei: {
+    id: 1329,
+    kind: "evm",
+    name: "Sei",
+    hexId: "0x531",
+    rpcUrl: "https://evm-rpc.sei-apis.com",
+    explorerUrl: "https://seiscan.io",
+    nativeCurrency: { name: "SEI", symbol: "SEI", decimals: 18 },
+  },
+  ganache: {
+    id: 1337,
+    kind: "evm",
+    name: "Ganache",
+    hexId: "0x539",
+    rpcUrl: "http://127.0.0.1:7545",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  },
   solana: {
     id: "mainnet-beta",
     kind: "solana",
@@ -102,7 +124,7 @@ export const CHAINS: Record<string, ChainInfo> = {
 export interface Web3State {
   address: string | null;
   chain: ChainInfo | null;
-  balance: string | null; // formatted native balance
+  balance: string | null;
   isConnecting: boolean;
   isConnected: boolean;
   walletId: WalletId | null;
@@ -118,10 +140,6 @@ interface UseWeb3Return extends Web3State {
   getSigner: () => Promise<JsonRpcSigner | null>;
 }
 
-/* ---------------------------------------------------
-   Window augmentation
---------------------------------------------------- */
-
 declare global {
   interface Window {
     ethereum?: any;
@@ -132,23 +150,14 @@ declare global {
 
 const STORAGE_KEY = "chainpace_wallet_session";
 
-/* ---------------------------------------------------
-   Helpers
---------------------------------------------------- */
-
 function getEvmProviderObject(wallet: WalletId): any | null {
   if (typeof window === "undefined") return null;
   const eth = window.ethereum;
   if (!eth) return null;
-
-  // multiple injected providers (EIP-5749 / providers array)
   const providers: any[] = eth.providers ?? [eth];
-
   switch (wallet) {
     case "metamask":
-      return (
-        providers.find((p) => p.isMetaMask) ?? (eth.isMetaMask ? eth : null)
-      );
+      return providers.find((p) => p.isMetaMask) ?? (eth.isMetaMask ? eth : null);
     case "coinbase":
       return (
         providers.find((p) => p.isCoinbaseWallet) ??
@@ -169,10 +178,6 @@ function findChainByHexId(hexId: string): ChainInfo | null {
   return entry ?? null;
 }
 
-/* ---------------------------------------------------
-   useWeb3 hook
---------------------------------------------------- */
-
 export function useWeb3(): UseWeb3Return {
   const [state, setState] = useState<Web3State>({
     address: null,
@@ -190,7 +195,6 @@ export function useWeb3(): UseWeb3Return {
   const patch = (partial: Partial<Web3State>) =>
     setState((prev) => ({ ...prev, ...partial }));
 
-  /* ---------- EVM connect ---------- */
   const connectEvm = useCallback(async (wallet: WalletId) => {
     const injected = getEvmProviderObject(wallet);
     if (!injected) {
@@ -246,7 +250,6 @@ export function useWeb3(): UseWeb3Return {
     injected.on?.("chainChanged", handleEvmChainChanged);
   }, []);
 
-  /* ---------- Solana connect (Phantom / any window.solana wallet) ---------- */
   const connectSolana = useCallback(async () => {
     const sol = window.solana;
     if (!sol || !sol.isPhantom) {
@@ -258,7 +261,7 @@ export function useWeb3(): UseWeb3Return {
     patch({
       address,
       chain: CHAINS.solana,
-      balance: null, // fetch via @solana/web3.js Connection if needed
+      balance: null,
       isConnected: true,
       isConnecting: false,
       walletId: "phantom",
@@ -279,7 +282,6 @@ export function useWeb3(): UseWeb3Return {
     });
   }, []);
 
-  /* ---------- Public connect entrypoint ---------- */
   const connect = useCallback(
     async (wallet: WalletId) => {
       patch({ isConnecting: true, error: null });
@@ -287,7 +289,6 @@ export function useWeb3(): UseWeb3Return {
         if (wallet === "phantom") {
           await connectSolana();
         } else {
-          // metamask | coinbase | injected | walletconnect(fallback→injected)
           await connectEvm(wallet === "walletconnect" ? "injected" : wallet);
         }
       } catch (err: any) {
@@ -301,7 +302,6 @@ export function useWeb3(): UseWeb3Return {
     [connectEvm, connectSolana],
   );
 
-  /* ---------- Disconnect ---------- */
   const disconnect = useCallback(() => {
     evmObjRef.current?.removeListener?.(
       "accountsChanged",
@@ -325,7 +325,6 @@ export function useWeb3(): UseWeb3Return {
     });
   }, []);
 
-  /* ---------- Switch EVM chain ---------- */
   const switchChain = useCallback(async (chainKey: keyof typeof CHAINS) => {
     const target = CHAINS[chainKey];
     const injected = evmObjRef.current;
@@ -340,7 +339,6 @@ export function useWeb3(): UseWeb3Return {
         params: [{ chainId: target.hexId }],
       });
     } catch (switchError: any) {
-      // chain not added to wallet yet
       if (switchError?.code === 4902) {
         await injected.request({
           method: "wallet_addEthereumChain",
@@ -360,7 +358,6 @@ export function useWeb3(): UseWeb3Return {
     }
   }, []);
 
-  /* ---------- Sign message (EVM + Solana) ---------- */
   const signMessage = useCallback(
     async (message: string): Promise<string | null> => {
       if (state.chain?.kind === "solana" && window.solana) {
@@ -383,7 +380,6 @@ export function useWeb3(): UseWeb3Return {
     return await providerRef.current.getSigner();
   }, []);
 
-  /* ---------- EVM event handlers ---------- */
   function handleEvmAccountsChanged(accounts: string[]) {
     if (!accounts || accounts.length === 0) {
       disconnect();
@@ -404,7 +400,6 @@ export function useWeb3(): UseWeb3Return {
     patch({ chain: chainInfo });
   }
 
-  /* ---------- Auto-reconnect on mount ---------- */
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return;
