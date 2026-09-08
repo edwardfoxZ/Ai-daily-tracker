@@ -3,6 +3,9 @@ import { BrowserProvider, Contract, JsonRpcSigner } from "ethers";
 export const CHAINPACE_ADDRESS =
   process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? "";
 
+/** Alias used by useContract.ts in some local copies */
+export const CONTRACT_ADDRESS = CHAINPACE_ADDRESS;
+
 export const EXPECTED_CHAIN_ID = Number(
   process.env.NEXT_PUBLIC_CHAIN_ID ?? "1337",
 );
@@ -34,6 +37,8 @@ export const CHAINPACE_ABI = [
   "function competitions(uint256 id) view returns (uint256 id_, address challenger, address opponent, uint256 startTime, uint256 endTime, bool resolved, address winner)",
   "function habits(uint256 id) view returns (uint256 id_, address owner, string title, uint8 cadenceDays, uint256 createdAt, bool active)",
 ];
+
+export const CONTRACT_ABI = CHAINPACE_ABI;
 
 export function getChainpace(signerOrProvider: BrowserProvider | JsonRpcSigner) {
   if (!CHAINPACE_ADDRESS) {
