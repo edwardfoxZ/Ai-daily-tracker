@@ -6,6 +6,15 @@ export interface ApiUser {
   email?: string | null;
   phone?: string | null;
   walletAddress?: string | null;
+  bio?: string;
+}
+
+export interface ApiMessage {
+  id: number;
+  fromUserId: number;
+  toUserId: number;
+  body: string;
+  createdAt: string;
 }
 
 class ApiError extends Error {
@@ -19,23 +28,18 @@ class ApiError extends Error {
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    credentials: "include", // send/receive the httpOnly session cookie
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
   });
-
   const data = await res.json().catch(() => ({}));
-
   if (!res.ok) {
-    throw new ApiError(data.error || "Something went wrong", res.status);
+    throw new ApiError((data as any).error || "Something went wrong", res.status);
   }
-
   return data as T;
 }
-
-/* ---------------- Auth endpoints ---------------- */
 
 export function signup(payload: {
   username: string;
@@ -69,7 +73,7 @@ export function walletAuth(payload: { walletAddress: string; username?: string }
 
 export async function checkUsername(username: string): Promise<boolean> {
   const data = await apiFetch<{ available: boolean }>(
-    `/api/auth/check-username?username=${encodeURIComponent(username)}`
+    `/api/auth/check-username?username=${encodeURIComponent(username)}`,
   );
   return data.available;
 }
@@ -80,6 +84,43 @@ export function me() {
 
 export function logout() {
   return apiFetch<{ ok: boolean }>("/api/auth/logout", { method: "POST" });
+}
+
+export function updateMe(payload: { username?: string; bio?: string }) {
+  return apiFetch<{ user: ApiUser }>("/api/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function linkWallet(walletAddress: string) {
+  return apiFetch<{ user: ApiUser }>("/api/me/wallet", {
+    method: "POST",
+    body: JSON.stringify({ walletAddress }),
+  });
+}
+
+export function searchUsers(q: string) {
+  return apiFetch<{ users: ApiUser[] }>(
+    `/api/users/search?q=${encodeURIComponent(q)}`,
+  );
+}
+
+export function userByWallet(address: string) {
+  return apiFetch<{ user: ApiUser }>(
+    `/api/users/by-wallet?address=${encodeURIComponent(address)}`,
+  );
+}
+
+export function listMessages(withUserId: number) {
+  return apiFetch<{ messages: ApiMessage[] }>(`/api/messages?with=${withUserId}`);
+}
+
+export function sendMessage(toUserId: number, body: string) {
+  return apiFetch<{ message: ApiMessage }>("/api/messages", {
+    method: "POST",
+    body: JSON.stringify({ toUserId, body }),
+  });
 }
 
 export { ApiError };
