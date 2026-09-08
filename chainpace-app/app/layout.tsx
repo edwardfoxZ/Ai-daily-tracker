@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/lib/theme-context";
 import { UserProvider } from "@/lib/user-context";
+import { NotificationsProvider } from "@/lib/notifications";
 import SessionSync from "@/components/SessionSync";
 import "./globals.css";
 
@@ -36,13 +37,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body
-        className={`${display.variable} ${body.variable} ${mono.variable} font-body`}
-      >
+      <body className={`${display.variable} ${body.variable} ${mono.variable} font-body`}>
         <ThemeProvider>
           <UserProvider>
-            <SessionSync />
-            {children}
+            <NotificationsProvider>
+              <SessionSync />
+              {children}
+            </NotificationsProvider>
           </UserProvider>
         </ThemeProvider>
       </body>
