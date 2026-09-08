@@ -4,7 +4,7 @@
 import { useCallback } from "react";
 import { Contract } from "ethers";
 import { useWeb3 } from "@/lib/useWeb3";
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from "@/lib/contract";
+import { CHAINPACE_ADDRESS, CHAINPACE_ABI } from "@/lib/contract";
 
 export function useContract() {
   const web3 = useWeb3();
@@ -12,13 +12,13 @@ export function useContract() {
   const readContract = useCallback(() => {
     const provider = web3.getProvider();
     if (!provider) throw new Error("Wallet not connected");
-    return new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+    return new Contract(CHAINPACE_ADDRESS, CHAINPACE_ABI, provider);
   }, [web3]);
 
   const writeContract = useCallback(async () => {
     const signer = await web3.getSigner();
     if (!signer) throw new Error("Wallet not connected");
-    return new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    return new Contract(CHAINPACE_ADDRESS, CHAINPACE_ABI, signer);
   }, [web3]);
 
   return {
