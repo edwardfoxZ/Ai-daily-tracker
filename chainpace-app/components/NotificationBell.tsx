@@ -28,22 +28,20 @@ export default function NotificationBell() {
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-border bg-surface shadow-lg dark:border-border-dark dark:bg-surface-dark">
+        <div className="absolute right-0 z-40 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-surface shadow-lg dark:border-border-dark dark:bg-surface-dark">
           <div className="border-b border-bordersoft px-3 py-2 text-[12px] font-semibold dark:border-bordersoft-dark">
             Notifications {unread > 0 ? `· ${unread} new` : ""}
           </div>
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
-              <p className="px-3 py-8 text-center text-[12px] text-faint">
-                No activity yet. Create a habit or accept a friend request.
-              </p>
+              <p className="px-3 py-8 text-center text-[12px] text-faint">No activity yet.</p>
             ) : (
               items.map((n) => (
                 <Link
                   key={n.id}
                   href={n.href || "/dashboard"}
                   onClick={() => setOpen(false)}
-                  className="block border-b border-bordersoft px-3 py-2.5 last:border-none hover:bg-surface2 dark:border-bordersoft-dark dark:hover:bg-surface2-dark"
+                  className="block border-b border-bordersoft px-3 py-2.5 last:border-none hover:bg-surface2 dark:border-bordersoft-dark"
                 >
                   <div className="text-[12.5px] font-semibold">{n.title}</div>
                   <div className="text-[11px] text-faint">{n.body}</div>
