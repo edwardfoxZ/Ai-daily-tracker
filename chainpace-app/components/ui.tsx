@@ -14,18 +14,18 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex items-center justify-between gap-4">
-      <div>
-        <h1 className="font-display text-[23px] font-semibold tracking-tight">
+    <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <h1 className="font-display text-[20px] font-semibold tracking-tight sm:text-[23px]">
           {title}
         </h1>
         {subtitle && (
-          <p className="mt-1 text-[13px] text-dim dark:text-dim-dark">
+          <p className="mt-1 text-[12.5px] text-dim dark:text-dim-dark sm:text-[13px]">
             {subtitle}
           </p>
         )}
       </div>
-      <div className="flex items-center gap-2.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-2.5">
         <NotificationBell />
         <ThemeToggle />
         {actions}
@@ -43,7 +43,7 @@ export function Panel({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-border bg-surface p-5 dark:border-border-dark dark:bg-surface-dark ${className}`}
+      className={`rounded-2xl border border-border bg-surface p-4 sm:p-5 dark:border-border-dark dark:bg-surface-dark ${className}`}
     >
       {children}
     </div>
@@ -60,13 +60,11 @@ export function PanelHead({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex items-center justify-between">
-      <div>
+    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
         <h3 className="font-display text-[15px] font-semibold">{title}</h3>
         {sub && (
-          <div className="mt-0.5 text-[11.5px] text-faint dark:text-faint-dark">
-            {sub}
-          </div>
+          <div className="mt-0.5 text-[11.5px] text-faint dark:text-faint-dark">{sub}</div>
         )}
       </div>
       {action}
@@ -105,9 +103,7 @@ export function Chip({
     coral: "border-coral/30 bg-coral/10 text-coral",
   };
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[10.5px] ${tones[tone]}`}
-    >
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[10.5px] ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -129,9 +125,7 @@ export function EmptyState({
       </div>
       <div className="text-[13.5px] font-semibold">{title}</div>
       {sub && (
-        <div className="mt-1 max-w-[280px] text-[12px] text-faint dark:text-faint-dark">
-          {sub}
-        </div>
+        <div className="mt-1 max-w-[280px] text-[12px] text-faint dark:text-faint-dark">{sub}</div>
       )}
     </div>
   );
