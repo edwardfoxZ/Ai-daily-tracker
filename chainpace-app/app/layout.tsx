@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/lib/theme-context";
 import { UserProvider } from "@/lib/user-context";
@@ -28,6 +28,12 @@ export const metadata: Metadata = {
   title: "Chainpace",
   description:
     "Proof-of-habit, on-chain. Build routines with people who hold you to it.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({

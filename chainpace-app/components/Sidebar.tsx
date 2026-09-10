@@ -11,8 +11,6 @@ interface NavItem {
   href: string;
   label: string;
   icon: ReactNode;
-  count?: string;
-  hot?: boolean;
 }
 
 const items: NavItem[] = [
@@ -104,7 +102,13 @@ function shortWallet(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  open = true,
+  onClose,
+}: {
+  open?: boolean;
+  onClose?: () => void;
+}) {
   const pathname = usePathname();
   const { user, loading, logout } = useUser();
   const web3 = useWeb3();
@@ -125,19 +129,33 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[236px] shrink-0 flex-col border-r border-bordersoft bg-elevated p-4 dark:border-bordersoft-dark dark:bg-elevated-dark">
-      <div className="flex items-center gap-2.5 px-2 pb-6 pt-1.5">
-        <div className="relative h-7 w-7 shrink-0 rounded-lg bg-gradient-to-br from-violet-bright to-violet-deep shadow-glow">
-          <div className="absolute inset-[7px] rounded-[4px] bg-elevated dark:bg-elevated-dark" />
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 flex w-[min(236px,85vw)] shrink-0 flex-col border-r border-bordersoft bg-elevated p-4 transition-transform duration-200 dark:border-bordersoft-dark dark:bg-elevated-dark lg:sticky lg:top-0 lg:h-dvh lg:w-[236px] lg:translate-x-0 ${
+        open ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
+      <div className="mb-4 flex items-center justify-between px-2 pt-1.5 lg:mb-6 lg:justify-start lg:gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="relative h-7 w-7 shrink-0 rounded-lg bg-gradient-to-br from-violet-bright to-violet-deep shadow-glow">
+            <div className="absolute inset-[7px] rounded-[4px] bg-elevated dark:bg-elevated-dark" />
+          </div>
+          <span className="font-display text-[16.5px] font-bold">Chainpace</span>
         </div>
-        <span className="font-display text-[16.5px] font-bold">Chainpace</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-dim lg:hidden"
+          aria-label="Close menu"
+        >
+          ✕
+        </button>
       </div>
 
       <div className="mb-4 px-0.5">
         <NewHabitButton />
       </div>
 
-      <div className="mb-5">
+      <div className="mb-5 min-h-0 flex-1 overflow-y-auto">
         <div className="px-2.5 pb-2 font-mono text-[10.5px] uppercase tracking-wider text-faint dark:text-faint-dark">
           Menu
         </div>
@@ -148,6 +166,7 @@ export default function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onClose}
                 className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors ${
                   active
                     ? "bg-surface2 text-ink shadow-[inset_2px_0_0_#B98CF0] dark:bg-surface2-dark dark:text-ink-dark"
@@ -160,14 +179,13 @@ export default function Sidebar() {
             );
           })}
         </nav>
-      </div>
 
-      <div className="mb-5">
-        <div className="px-2.5 pb-2 font-mono text-[10.5px] uppercase tracking-wider text-faint dark:text-faint-dark">
+        <div className="mt-5 px-2.5 pb-2 font-mono text-[10.5px] uppercase tracking-wider text-faint dark:text-faint-dark">
           AI
         </div>
         <Link
           href="/insights"
+          onClick={onClose}
           className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium text-dim transition-colors hover:bg-surface2 hover:text-ink dark:text-dim-dark dark:hover:bg-surface2-dark dark:hover:text-ink-dark"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className="h-[17px] w-[17px] shrink-0">
@@ -178,10 +196,10 @@ export default function Sidebar() {
         </Link>
       </div>
 
-      <div className="mt-auto border-t border-bordersoft pt-3.5 dark:border-bordersoft-dark">
+      <div className="border-t border-bordersoft pt-3.5 dark:border-bordersoft-dark">
         {user ? (
           <div className="group flex items-center gap-2.5 rounded-lg p-2 hover:bg-surface2 dark:hover:bg-surface2-dark">
-            <Link href="/profile" className="flex min-w-0 flex-1 items-center gap-2.5">
+            <Link href="/profile" onClick={onClose} className="flex min-w-0 flex-1 items-center gap-2.5">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-bright to-violet-deep font-display text-xs font-semibold text-white">
                 {initials}
               </div>
@@ -195,7 +213,7 @@ export default function Sidebar() {
             <button
               onClick={handleLogout}
               title="Log out"
-              className="shrink-0 rounded-md p-1.5 text-faint opacity-0 transition hover:bg-surface hover:text-coral group-hover:opacity-100 dark:text-faint-dark dark:hover:bg-surface-dark"
+              className="shrink-0 rounded-md p-1.5 text-faint hover:bg-surface hover:text-coral dark:text-faint-dark"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-3.5 w-3.5">
                 <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
@@ -207,6 +225,7 @@ export default function Sidebar() {
         ) : (
           <Link
             href="/login"
+            onClick={onClose}
             className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-violet-bright to-violet-deep py-2.5 text-[12.5px] font-semibold text-white shadow-glow"
           >
             {loading ? "Loading…" : "Sign in"}
