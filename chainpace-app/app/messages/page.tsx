@@ -55,7 +55,10 @@ export default function MessagesPage() {
     <div className="flex min-h-screen bg-bg text-ink dark:bg-bg-dark dark:text-ink-dark">
       <Sidebar />
       <main className="flex-1 px-8 pb-16 pt-6">
-        <PageHeader title="Messages" subtitle="Stored in your Go backend — not on-chain" />
+        <PageHeader
+          title="Messages"
+          subtitle="Stored in your Go backend — not on-chain"
+        />
         {error && <p className="mb-3 text-sm text-coral">{error}</p>}
         {!user && (
           <Panel>
@@ -81,7 +84,9 @@ export default function MessagesPage() {
                   key={u.id}
                   onClick={() => setPeer(u)}
                   className={`mb-1 w-full rounded-lg px-3 py-2 text-left text-sm ${
-                    peer?.id === u.id ? "bg-violet-dark/15" : "hover:bg-surface2"
+                    peer?.id === u.id
+                      ? "bg-violet-dark/15"
+                      : "hover:bg-surface2"
                   }`}
                 >
                   {u.username}
@@ -90,10 +95,14 @@ export default function MessagesPage() {
             </Panel>
             <Panel>
               {!peer ? (
-                <p className="py-10 text-center text-sm text-faint">Pick someone to chat.</p>
+                <p className="py-10 text-center text-sm text-faint">
+                  Pick someone to chat.
+                </p>
               ) : (
                 <>
-                  <div className="mb-3 text-sm font-semibold">Chat with {peer.username}</div>
+                  <div className="mb-3 text-sm font-semibold">
+                    Chat with {peer.username}
+                  </div>
                   <div className="mb-3 max-h-[360px] space-y-2 overflow-y-auto">
                     {thread.map((m) => (
                       <div

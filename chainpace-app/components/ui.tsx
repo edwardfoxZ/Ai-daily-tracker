@@ -16,9 +16,13 @@ export function PageHeader({
   return (
     <div className="mb-6 flex items-center justify-between gap-4">
       <div>
-        <h1 className="font-display text-[23px] font-semibold tracking-tight">{title}</h1>
+        <h1 className="font-display text-[23px] font-semibold tracking-tight">
+          {title}
+        </h1>
         {subtitle && (
-          <p className="mt-1 text-[13px] text-dim dark:text-dim-dark">{subtitle}</p>
+          <p className="mt-1 text-[13px] text-dim dark:text-dim-dark">
+            {subtitle}
+          </p>
         )}
       </div>
       <div className="flex items-center gap-2.5">
@@ -38,7 +42,9 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <div className={`rounded-2xl border border-border bg-surface p-5 dark:border-border-dark dark:bg-surface-dark ${className}`}>
+    <div
+      className={`rounded-2xl border border-border bg-surface p-5 dark:border-border-dark dark:bg-surface-dark ${className}`}
+    >
       {children}
     </div>
   );
@@ -57,7 +63,11 @@ export function PanelHead({
     <div className="mb-4 flex items-center justify-between">
       <div>
         <h3 className="font-display text-[15px] font-semibold">{title}</h3>
-        {sub && <div className="mt-0.5 text-[11.5px] text-faint dark:text-faint-dark">{sub}</div>}
+        {sub && (
+          <div className="mt-0.5 text-[11.5px] text-faint dark:text-faint-dark">
+            {sub}
+          </div>
+        )}
       </div>
       {action}
     </div>
@@ -95,7 +105,9 @@ export function Chip({
     coral: "border-coral/30 bg-coral/10 text-coral",
   };
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[10.5px] ${tones[tone]}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-mono text-[10.5px] ${tones[tone]}`}
+    >
       {children}
     </span>
   );
@@ -116,7 +128,11 @@ export function EmptyState({
         {icon}
       </div>
       <div className="text-[13.5px] font-semibold">{title}</div>
-      {sub && <div className="mt-1 max-w-[280px] text-[12px] text-faint dark:text-faint-dark">{sub}</div>}
+      {sub && (
+        <div className="mt-1 max-w-[280px] text-[12px] text-faint dark:text-faint-dark">
+          {sub}
+        </div>
+      )}
     </div>
   );
 }
