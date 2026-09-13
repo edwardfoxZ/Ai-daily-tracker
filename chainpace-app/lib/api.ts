@@ -17,6 +17,13 @@ export interface ApiMessage {
   createdAt: string;
 }
 
+export interface Conversation {
+  peer: ApiUser;
+  lastBody: string;
+  lastAt: string;
+  lastFromId: number;
+}
+
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -60,6 +67,20 @@ export function login(payload: { identifier: string; password: string }) {
   });
 }
 
+export function requestOtp(email: string) {
+  return apiFetch<{ ok: boolean; sent: boolean; devCode?: string }>(
+    "/api/auth/request-otp",
+    { method: "POST", body: JSON.stringify({ email }) },
+  );
+}
+
+export function verifyOtp(payload: { email: string; code: string; username?: string }) {
+  return apiFetch<{ user?: ApiUser; isNew?: boolean; requiresUsername?: boolean }>(
+    "/api/auth/verify-otp",
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
 export function walletAuth(payload: { walletAddress: string; username?: string }) {
   return apiFetch<{
     user?: ApiUser;
@@ -101,15 +122,11 @@ export function linkWallet(walletAddress: string) {
 }
 
 export function searchUsers(q: string) {
-  return apiFetch<{ users: ApiUser[] }>(
-    `/api/users/search?q=${encodeURIComponent(q)}`,
-  );
+  return apiFetch<{ users: ApiUser[] }>(`/api/users/search?q=${encodeURIComponent(q)}`);
 }
 
 export function userByWallet(address: string) {
-  return apiFetch<{ user: ApiUser }>(
-    `/api/users/by-wallet?address=${encodeURIComponent(address)}`,
-  );
+  return apiFetch<{ user: ApiUser }>(`/api/users/by-wallet?address=${encodeURIComponent(address)}`);
 }
 
 export function listMessages(withUserId: number) {
@@ -121,6 +138,10 @@ export function sendMessage(toUserId: number, body: string) {
     method: "POST",
     body: JSON.stringify({ toUserId, body }),
   });
+}
+
+export function listConversations() {
+  return apiFetch<{ conversations: Conversation[] }>("/api/conversations");
 }
 
 export { ApiError };
