@@ -17,6 +17,8 @@ func main() {
 	mux.HandleFunc("POST /api/auth/signup", signupHandler)
 	mux.HandleFunc("POST /api/auth/login", loginHandler)
 	mux.HandleFunc("POST /api/auth/wallet", walletAuthHandler)
+	mux.HandleFunc("POST /api/auth/request-otp", requestOtpHandler)
+	mux.HandleFunc("POST /api/auth/verify-otp", verifyOtpHandler)
 	mux.HandleFunc("GET /api/auth/check-username", checkUsernameHandler)
 	mux.HandleFunc("GET /api/auth/me", meHandler)
 	mux.HandleFunc("POST /api/auth/logout", logoutHandler)
@@ -29,6 +31,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/messages", listMessagesHandler)
 	mux.HandleFunc("POST /api/messages", sendMessageHandler)
+	mux.HandleFunc("GET /api/conversations", listConversationsHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

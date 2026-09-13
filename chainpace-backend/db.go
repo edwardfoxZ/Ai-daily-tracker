@@ -41,14 +41,16 @@ func initDB() {
 		FOREIGN KEY(from_user_id) REFERENCES users(id),
 		FOREIGN KEY(to_user_id) REFERENCES users(id)
 	);
+	CREATE TABLE IF NOT EXISTS email_otps (
+		email TEXT PRIMARY KEY,
+		code_hash TEXT NOT NULL,
+		expires_at TEXT NOT NULL
+	);
 	CREATE INDEX IF NOT EXISTS idx_messages_pair ON messages(from_user_id, to_user_id, created_at);
 	`
 	if _, err = db.Exec(schema); err != nil {
 		log.Fatal("Failed to create schema:", err)
 	}
-
-	// older DBs created before bio existed
 	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''`)
-
 	log.Println("✅ Connected to SQLite and schema ready (chainpace.db)")
 }
