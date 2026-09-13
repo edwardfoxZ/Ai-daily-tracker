@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -63,7 +62,6 @@ func requestOtpHandler(w http.ResponseWriter, r *http.Request) {
 		"expires": expires,
 		"sent":    sent,
 	}
-	// Local/dev only: no Resend key means we echo the code so you can test.
 	if !sent {
 		resp["devCode"] = code
 		log.Println("OTP for", email, "is", code)
@@ -103,7 +101,7 @@ func verifyOtpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = db.Exec(`DELETE FROM email_otps WHERE email = ?`, email)
 
-	user, err := FindUserByIdentifier(email)
+	user, _, err := FindUserByIdentifier(email)
 	if err == nil {
 		token, err := generateToken(user.ID, user.Username)
 		if err != nil {
@@ -171,6 +169,5 @@ func sendOtpEmail(to, code string) (bool, error) {
 	if res.StatusCode >= 300 {
 		return false, fmt.Errorf("resend %s: %s", res.Status, slug)
 	}
-	_ = url.Values{}
 	return true, nil
 }
