@@ -24,7 +24,7 @@ func listConversationsHandler(w http.ResponseWriter, r *http.Request) {
 			SELECT MAX(id) FROM messages
 			WHERE from_user_id = ? OR to_user_id = ?
 			GROUP BY CASE WHEN from_user_id < to_user_id THEN from_user_id ELSE to_user_id END,
-			         CASE WHEN from_user_id < to_user_id THEN to_user_id ELSE from_user_id END
+			CASE WHEN from_user_id < to_user_id THEN to_user_id ELSE from_user_id END
 		)
 		ORDER BY m.id DESC
 	`, me.ID, me.ID)
