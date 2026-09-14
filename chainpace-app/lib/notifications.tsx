@@ -11,6 +11,8 @@ import {
   ReactNode,
 } from "react";
 import { useChainpace } from "@/lib/useChainpace";
+import { useUser } from "@/lib/user-context";
+import { listConversations } from "@/lib/api";
 import { shortAddr } from "@/lib/contract";
 
 export type NoticeKind =
@@ -18,7 +20,9 @@ export type NoticeKind =
   | "completion"
   | "friend"
   | "competition"
-  | "reward";
+  | "reward"
+  | "message"
+  | "insight";
 
 export interface Notice {
   id: string;
@@ -33,126 +37,151 @@ export interface Notice {
 interface Ctx {
   items: Notice[];
   unread: number;
-  push: (n: Omit<Notice, "id" | "at" | "read">) => void;
+  push: (n: Omit<Notice, "id" | "at" | "read"> & { id?: string }) => void;
   markAllRead: () => void;
 }
 
 const NotificationsContext = createContext<Ctx | null>(null);
-const KEY = "chainpace_notices";
+const KEY = "chainpace_notices_v2";
+const SEEN = "chainpace_notice_seen_v2";
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const chain = useChainpace();
+  const { user } = useUser();
   const [items, setItems] = useState<Notice[]>([]);
-  const prevIncoming = useRef<number | null>(null);
-  const prevPoints = useRef<number | null>(null);
-  const prevComps = useRef<number | null>(null);
-  const prevHabits = useRef<number | null>(null);
+  const primed = useRef(false);
+  const seen = useRef({
+    incoming: 0,
+    points: 0,
+    comps: 0,
+    habits: 0,
+    inbox: 0,
+  });
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) {
+        const parsed: Notice[] = JSON.parse(raw);
+        setItems(parsed.map((n) => ({ ...n, read: true })));
+      }
+      const s = localStorage.getItem(SEEN);
+      if (s) seen.current = { ...seen.current, ...JSON.parse(s) };
     } catch {
       /* ignore */
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(KEY, JSON.stringify(items.slice(0, 40)));
+    localStorage.setItem(KEY, JSON.stringify(items.slice(0, 30)));
   }, [items]);
 
-  const push = useCallback((n: Omit<Notice, "id" | "at" | "read">) => {
-    setItems((prev) => [
-      {
-        ...n,
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        at: Date.now(),
-        read: false,
-      },
-      ...prev,
-    ].slice(0, 40));
+  const persistSeen = () => {
+    localStorage.setItem(SEEN, JSON.stringify(seen.current));
+  };
+
+  const push = useCallback((n: Omit<Notice, "id" | "at" | "read"> & { id?: string }) => {
+    const id = n.id || `${n.kind}-${Date.now()}`;
+    setItems((prev) => {
+      if (prev.some((x) => x.id === id)) return prev;
+      return [
+        { ...n, id, at: Date.now(), read: false },
+        ...prev.filter((x) => x.read || Date.now() - x.at < 86_400_000),
+      ].slice(0, 30);
+    });
   }, []);
 
   useEffect(() => {
-    const onHabit = () =>
-      push({
-        kind: "habit",
-        title: "Habit created",
-        body: "A new habit was written on-chain.",
-        href: "/habits",
-      });
-    window.addEventListener("chainpace:habits-changed", onHabit);
-    return () => window.removeEventListener("chainpace:habits-changed", onHabit);
-  }, [push]);
-
-  useEffect(() => {
     if (!chain.ready) return;
-    if (prevIncoming.current === null) {
-      prevIncoming.current = chain.incoming.length;
-    } else if (chain.incoming.length > prevIncoming.current) {
+    if (!primed.current) {
+      seen.current.incoming = chain.incoming.length;
+      seen.current.points = chain.points;
+      seen.current.comps = chain.competitions.length;
+      seen.current.habits = chain.habits.length;
+      primed.current = true;
+      persistSeen();
+      return;
+    }
+    if (chain.incoming.length > seen.current.incoming) {
       const newest = chain.incoming[chain.incoming.length - 1];
       push({
+        id: `friend-${newest}`,
         kind: "friend",
         title: "Friend request",
         body: `${shortAddr(newest)} sent you a request.`,
         href: "/friends",
       });
-      prevIncoming.current = chain.incoming.length;
-    } else {
-      prevIncoming.current = chain.incoming.length;
     }
-  }, [chain.ready, chain.incoming, push]);
-
-  useEffect(() => {
-    if (!chain.ready) return;
-    if (prevPoints.current === null) {
-      prevPoints.current = chain.points;
-      return;
-    }
-    if (chain.points > prevPoints.current) {
+    if (chain.points > seen.current.points) {
       push({
+        id: `reward-${chain.points}`,
         kind: "reward",
         title: "Points earned",
-        body: `On-chain balance is now ${chain.points} pts.`,
+        body: `Balance is now ${chain.points} pts.`,
         href: "/rewards",
       });
     }
-    prevPoints.current = chain.points;
-  }, [chain.ready, chain.points, push]);
-
-  useEffect(() => {
-    if (!chain.ready) return;
-    if (prevComps.current === null) {
-      prevComps.current = chain.competitions.length;
-      return;
-    }
-    if (chain.competitions.length > prevComps.current) {
+    if (chain.competitions.length > seen.current.comps) {
       push({
+        id: `comp-${chain.competitions.length}`,
         kind: "competition",
-        title: "Competition update",
-        body: "A challenge was created or updated on-chain.",
+        title: "Competition",
+        body: "A challenge was created or updated.",
         href: "/competitions",
       });
     }
-    prevComps.current = chain.competitions.length;
-  }, [chain.ready, chain.competitions.length, push]);
-
-  useEffect(() => {
-    if (!chain.ready) return;
-    if (prevHabits.current === null) {
-      prevHabits.current = chain.habits.length;
-      return;
-    }
-    if (chain.habits.length > prevHabits.current) {
+    if (chain.habits.length > seen.current.habits) {
       push({
+        id: `habit-${chain.habits[0]?.id}`,
         kind: "habit",
-        title: "New habit on-chain",
-        body: `${chain.habits[0]?.title ?? "A habit"} is now live.`,
+        title: "Habit added",
+        body: chain.habits[0]?.title || "New habit on-chain",
         href: "/habits",
       });
     }
-    prevHabits.current = chain.habits.length;
-  }, [chain.ready, chain.habits, push]);
+    seen.current.incoming = chain.incoming.length;
+    seen.current.points = chain.points;
+    seen.current.comps = chain.competitions.length;
+    seen.current.habits = chain.habits.length;
+    persistSeen();
+  }, [chain.ready, chain.incoming, chain.points, chain.competitions.length, chain.habits, push]);
+
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const res = await listConversations();
+        if (!alive) return;
+        const last = res.conversations[0];
+        const stamp = last ? Date.parse(last.lastAt) || res.conversations.length : 0;
+        if (seen.current.inbox === 0) {
+          seen.current.inbox = stamp;
+          persistSeen();
+          return;
+        }
+        if (stamp > seen.current.inbox && last && last.lastFromId !== user.id) {
+          push({
+            id: `msg-${last.peer.id}-${stamp}`,
+            kind: "message",
+            title: `Message from ${last.peer.username}`,
+            body: last.lastBody,
+            href: "/messages",
+          });
+          seen.current.inbox = stamp;
+          persistSeen();
+        }
+      } catch {
+        /* not signed in / backend down */
+      }
+    };
+    tick();
+    const id = setInterval(tick, 20000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [user, push]);
 
   const markAllRead = useCallback(() => {
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -165,9 +194,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <NotificationsContext.Provider value={value}>
-      {children}
-    </NotificationsContext.Provider>
+    <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>
   );
 }
 
