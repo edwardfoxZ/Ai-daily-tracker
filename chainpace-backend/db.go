@@ -18,7 +18,6 @@ func initDB() {
 	if err = db.Ping(); err != nil {
 		log.Fatal("Failed to ping database:", err)
 	}
-
 	_, _ = db.Exec(`PRAGMA foreign_keys = ON;`)
 
 	schema := `
@@ -30,6 +29,7 @@ func initDB() {
 		password_hash TEXT,
 		wallet_address TEXT UNIQUE,
 		bio TEXT DEFAULT '',
+		allow_anyone_message INTEGER DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS messages (
@@ -37,20 +37,23 @@ func initDB() {
 		from_user_id INTEGER NOT NULL,
 		to_user_id INTEGER NOT NULL,
 		body TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY(from_user_id) REFERENCES users(id),
-		FOREIGN KEY(to_user_id) REFERENCES users(id)
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS email_otps (
 		email TEXT PRIMARY KEY,
 		code_hash TEXT NOT NULL,
 		expires_at TEXT NOT NULL
 	);
-	CREATE INDEX IF NOT EXISTS idx_messages_pair ON messages(from_user_id, to_user_id, created_at);
+	CREATE TABLE IF NOT EXISTS friendships (
+		user_a INTEGER NOT NULL,
+		user_b INTEGER NOT NULL,
+		PRIMARY KEY (user_a, user_b)
+	);
 	`
 	if _, err = db.Exec(schema); err != nil {
 		log.Fatal("Failed to create schema:", err)
 	}
 	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN bio TEXT DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN allow_anyone_message INTEGER DEFAULT 0`)
 	log.Println("✅ Connected to SQLite and schema ready (chainpace.db)")
 }
