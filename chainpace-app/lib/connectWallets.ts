@@ -1,11 +1,19 @@
 import { BrowserProvider } from "ethers";
 import { friendlyWalletError } from "@/lib/walletSession";
 
-export type MobileWallet = "metamask" | "trust" | "walletconnect";
+export const SEI_TESTNET = {
+  chainId: 1328,
+  hexId: "0x530",
+  name: "Sei Testnet",
+  rpcUrl: "https://evm-rpc-testnet.sei-apis.com",
+  explorerUrl: "https://testnet.seiscan.io",
+  nativeCurrency: { name: "SEI", symbol: "SEI", decimals: 18 },
+};
 
-function isMobile() {
-  if (typeof navigator === "undefined") return false;
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+let lastProvider: any = null;
+
+export function getWalletProvider() {
+  return lastProvider;
 }
 
 function injected(): any | null {
@@ -13,39 +21,105 @@ function injected(): any | null {
   return (window as any).ethereum ?? (window as any).trustwallet ?? null;
 }
 
-function inWalletBrowser() {
-  const eth = injected();
-  if (!eth) return false;
-  return !!(eth.isTrust || eth.isTrustWallet || eth.isMetaMask || eth.isCoinbaseWallet);
+function isMetaMaskProvider(p: any) {
+  return !!(p?.isMetaMask && !p?.isTrust && !p?.isTrustWallet);
 }
 
-function pickInjected(kind: MobileWallet): any | null {
-  const eth = injected();
-  if (!eth) return null;
-  const list: any[] = eth.providers ?? [eth];
-  if (kind === "trust") {
-    return (
-      list.find((p) => p.isTrust || p.isTrustWallet) ??
-      (eth.isTrust || eth.isTrustWallet ? eth : (window as any).trustwallet ?? null)
-    );
+function parseAccount(raw: string) {
+  if (!raw) return "";
+  if (raw.startsWith("0x")) return raw;
+  const parts = raw.split(":");
+  return parts[parts.length - 1] || "";
+}
+
+async function accountsFrom(provider: any): Promise<string[]> {
+  const out: string[] = [];
+  const push = (v: any) => {
+    if (!v) return;
+    const list = Array.isArray(v) ? v : [v];
+    for (const item of list) {
+      const addr = parseAccount(String(item));
+      if (addr.startsWith("0x") && !out.includes(addr.toLowerCase())) out.push(addr);
+    }
+  };
+  push(provider?.accounts);
+  try {
+    push(await provider.request({ method: "eth_accounts" }));
+  } catch {
+    /* ignore */
   }
-  if (kind === "metamask") {
-    return list.find((p) => p.isMetaMask && !p.isTrust) ?? (eth.isMetaMask ? eth : null);
+  try {
+    push(await provider.request({ method: "eth_requestAccounts" }));
+  } catch {
+    /* user may have already approved */
   }
-  return eth;
+  try {
+    const ns = provider?.session?.namespaces?.eip155?.accounts;
+    push(ns);
+  } catch {
+    /* ignore */
+  }
+  return out;
+}
+
+export async function getActiveChainId(): Promise<number | null> {
+  const p = lastProvider || injected();
+  if (!p?.request) return null;
+  try {
+    const hex = await p.request({ method: "eth_chainId" });
+    return parseInt(hex, 16);
+  } catch {
+    return null;
+  }
+}
+
+/** MetaMask supports wallet_addEthereumChain. Trust/WC may ignore it. */
+export async function addSeiTestnet(): Promise<{ added: boolean; reason?: string }> {
+  const p = lastProvider || injected();
+  if (!p?.request) return { added: false, reason: "No wallet connected" };
+  if (p.isTrust || p.isTrustWallet) {
+    return { added: false, reason: "Add Sei Testnet in Trust Wallet networks. Auto-add only works in MetaMask." };
+  }
+  try {
+    await p.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: SEI_TESTNET.hexId }],
+    });
+    return { added: true };
+  } catch (switchErr: any) {
+    if (switchErr?.code !== 4902 && !/unrecognized|not added/i.test(String(switchErr?.message))) {
+      throw new Error(friendlyWalletError(switchErr));
+    }
+  }
+  try {
+    await p.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: SEI_TESTNET.hexId,
+          chainName: SEI_TESTNET.name,
+          rpcUrls: [SEI_TESTNET.rpcUrl],
+          blockExplorerUrls: [SEI_TESTNET.explorerUrl],
+          nativeCurrency: SEI_TESTNET.nativeCurrency,
+        },
+      ],
+    });
+    return { added: true };
+  } catch (e: any) {
+    throw new Error(friendlyWalletError(e));
+  }
 }
 
 async function connectWalletConnect(): Promise<string> {
   const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
   if (!projectId) {
-    throw new Error("Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID");
+    throw new Error("Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID on this deploy");
   }
   const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
-  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 1328);
   const wc = await EthereumProvider.init({
     projectId,
-    chains: [chainId],
-    optionalChains: [1, 1328, 1329, 8453],
+    chains: [SEI_TESTNET.chainId],
+    optionalChains: [SEI_TESTNET.chainId, 1329, 1, 8453],
     showQrModal: true,
     metadata: {
       name: "Chainpace",
@@ -54,26 +128,30 @@ async function connectWalletConnect(): Promise<string> {
       icons: ["https://avatars.githubusercontent.com/u/37784886"],
     },
   });
-  await wc.connect();
-  const accts = wc.accounts;
-  if (!accts?.[0]) throw new Error("WalletConnect returned no account");
-  try {
-    const provider = new BrowserProvider(wc as any);
-    const signer = await provider.getSigner();
-    await signer.signMessage("Chainpace login");
-  } catch (e: any) {
-    throw new Error(friendlyWalletError(e));
+  lastProvider = wc;
+  if (!wc.session) {
+    await wc.connect();
   }
-  return accts[0];
+  try {
+    await wc.enable();
+  } catch {
+    /* older providers */
+  }
+  const found = await accountsFrom(wc);
+  if (!found[0]) {
+    throw new Error("Wallet connected but no account came back. Open the wallet, approve the session, then tap Connect again.");
+  }
+  return found[0];
 }
 
-export async function connectInjectedOrWc(kind: MobileWallet): Promise<string> {
+export async function connectWallet(): Promise<string> {
   try {
-    const useInjected = pickInjected(kind) && (!isMobile() || inWalletBrowser());
-    if (useInjected) {
-      const inj = pickInjected(kind)!;
-      const accounts: string[] = await inj.request({ method: "eth_requestAccounts" });
-      if (!accounts?.[0]) throw new Error("No account returned");
+    const inj = injected();
+    const inWalletApp = !!(inj && (inj.isMetaMask || inj.isTrust || inj.isTrustWallet || inj.isCoinbaseWallet));
+    if (inj && inWalletApp) {
+      lastProvider = inj;
+      const accounts = await accountsFrom(inj);
+      if (!accounts[0]) throw new Error("No account returned from wallet");
       try {
         const provider = new BrowserProvider(inj);
         const signer = await provider.getSigner();
@@ -83,8 +161,18 @@ export async function connectInjectedOrWc(kind: MobileWallet): Promise<string> {
       }
       return accounts[0];
     }
-    return await connectWalletConnect();
+    const addr = await connectWalletConnect();
+    try {
+      const provider = new BrowserProvider(lastProvider);
+      const signer = await provider.getSigner();
+      await signer.signMessage("Chainpace login");
+    } catch (e: any) {
+      if (e?.code === 4001) throw new Error(friendlyWalletError(e));
+    }
+    return addr;
   } catch (e: any) {
     throw new Error(friendlyWalletError(e));
   }
 }
+
+export { isMetaMaskProvider };
