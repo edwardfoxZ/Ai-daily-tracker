@@ -61,10 +61,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const parsed: Notice[] = JSON.parse(raw);
-        setItems(parsed.map((n) => ({ ...n, read: true })));
-      }
+      if (raw) setItems(JSON.parse(raw));
       const s = localStorage.getItem(SEEN);
       if (s) seen.current = { ...seen.current, ...JSON.parse(s) };
     } catch {
@@ -76,20 +73,36 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(KEY, JSON.stringify(items.slice(0, 30)));
   }, [items]);
 
-  const persistSeen = () => {
-    localStorage.setItem(SEEN, JSON.stringify(seen.current));
-  };
+  const persistSeen = () => localStorage.setItem(SEEN, JSON.stringify(seen.current));
 
   const push = useCallback((n: Omit<Notice, "id" | "at" | "read"> & { id?: string }) => {
     const id = n.id || `${n.kind}-${Date.now()}`;
     setItems((prev) => {
       if (prev.some((x) => x.id === id)) return prev;
-      return [
-        { ...n, id, at: Date.now(), read: false },
-        ...prev.filter((x) => x.read || Date.now() - x.at < 86_400_000),
-      ].slice(0, 30);
+      return [{ ...n, id, at: Date.now(), read: false }, ...prev].slice(0, 30);
     });
   }, []);
+
+  useEffect(() => {
+    const onCustom = (e: Event) => {
+      const d = (e as CustomEvent).detail || {};
+      if (!d.title) return;
+      push({
+        id: d.id,
+        kind: d.kind || "insight",
+        title: d.title,
+        body: d.body || "",
+        href: d.href,
+      });
+    };
+    window.addEventListener("chainpace:notify", onCustom);
+    window.addEventListener("chainpace:habits-changed", () =>
+      push({ kind: "habit", title: "Habit saved", body: "Written on-chain.", href: "/habits" }),
+    );
+    return () => {
+      window.removeEventListener("chainpace:notify", onCustom);
+    };
+  }, [push]);
 
   useEffect(() => {
     if (!chain.ready) return;
@@ -105,7 +118,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (chain.incoming.length > seen.current.incoming) {
       const newest = chain.incoming[chain.incoming.length - 1];
       push({
-        id: `friend-${newest}`,
+        id: `friend-${newest}-${chain.incoming.length}`,
         kind: "friend",
         title: "Friend request",
         body: `${shortAddr(newest)} sent you a request.`,
@@ -132,7 +145,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
     if (chain.habits.length > seen.current.habits) {
       push({
-        id: `habit-${chain.habits[0]?.id}`,
+        id: `habit-onchain-${chain.habits[0]?.id}`,
         kind: "habit",
         title: "Habit added",
         body: chain.habits[0]?.title || "New habit on-chain",
@@ -155,7 +168,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         if (!alive) return;
         const last = res.conversations[0];
         const stamp = last ? Date.parse(last.lastAt) || res.conversations.length : 0;
-        if (seen.current.inbox === 0) {
+        if (!seen.current.inbox) {
           seen.current.inbox = stamp;
           persistSeen();
           return;
@@ -172,11 +185,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           persistSeen();
         }
       } catch {
-        /* not signed in / backend down */
+        /* ignore */
       }
     };
     tick();
-    const id = setInterval(tick, 20000);
+    const id = setInterval(tick, 15000);
     return () => {
       alive = false;
       clearInterval(id);
@@ -188,25 +201,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const unread = items.filter((n) => !n.read).length;
-  const value = useMemo(
-    () => ({ items, unread, push, markAllRead }),
-    [items, unread, push, markAllRead],
-  );
+  const value = useMemo(() => ({ items, unread, push, markAllRead }), [items, unread, push, markAllRead]);
 
-  return (
-    <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>
-  );
+  return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
 
 export function useNotifications() {
   const ctx = useContext(NotificationsContext);
   if (!ctx) {
-    return {
-      items: [] as Notice[],
-      unread: 0,
-      push: () => {},
-      markAllRead: () => {},
-    };
+    return { items: [] as Notice[], unread: 0, push: () => {}, markAllRead: () => {} };
   }
   return ctx;
 }

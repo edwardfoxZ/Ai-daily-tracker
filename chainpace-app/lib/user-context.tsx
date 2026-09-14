@@ -9,6 +9,7 @@ import {
   useCallback,
 } from "react";
 import { me, logout as apiLogout, ApiUser } from "@/lib/api";
+import { hardDisconnectWallet } from "@/lib/walletSession";
 
 interface UserContextValue {
   user: ApiUser | null;
@@ -27,7 +28,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const res = await me();
-      setUser(res.user);
+      setUser(res.user ?? null);
     } catch {
       setUser(null);
     } finally {
@@ -43,6 +44,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       await apiLogout();
     } finally {
+      hardDisconnectWallet();
       setUser(null);
       window.location.href = "/login";
     }
