@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useWeb3 } from "@/lib/useWeb3";
 import { useUser } from "@/lib/user-context";
 import {
   walletAuth,
@@ -12,13 +11,12 @@ import {
   login as passwordLogin,
   ApiError,
 } from "@/lib/api";
-import { hasInjectedWallet, isMobileBrowser, openInMetaMaskApp } from "@/lib/walletMobile";
+import { connectInjectedOrWc, MobileWallet } from "@/lib/connectWallets";
 
 type Step = "home" | "otp" | "otp-code" | "otp-username" | "password" | "wallet-name";
 
 export default function LoginPage() {
   const router = useRouter();
-  const web3 = useWeb3();
   const { refetch } = useUser();
   const [step, setStep] = useState<Step>("home");
   const [email, setEmail] = useState("");
@@ -27,6 +25,7 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [walletAddr, setWalletAddr] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,27 +34,14 @@ export default function LoginPage() {
     router.push("/dashboard");
   };
 
-  const goWallet = async () => {
+  const goWallet = async (kind: MobileWallet) => {
     setError(null);
-    if (!hasInjectedWallet()) {
-      if (isMobileBrowser()) {
-        openInMetaMaskApp();
-        setError("Opening MetaMask. When this page reloads inside the app, tap Connect wallet again.");
-        return;
-      }
-      setError("Install MetaMask (desktop extension) or open this site in the MetaMask app.");
-      return;
-    }
     setLoading(true);
     try {
-      await web3.connect("injected");
-      const addr = web3.address;
-      // connect() sets state async — read from window
-      const accounts = await (window as any).ethereum.request({ method: "eth_requestAccounts" });
-      const walletAddress = accounts?.[0] || addr;
-      if (!walletAddress) throw new Error("No wallet address");
-      const res = await walletAuth({ walletAddress });
-      if (res.requiresUsername || res.isNew && !res.user) {
+      const addr = await connectInjectedOrWc(kind);
+      setWalletAddr(addr);
+      const res = await walletAuth({ walletAddress: addr });
+      if (res.requiresUsername || (res.isNew && !res.user)) {
         setStep("wallet-name");
         return;
       }
@@ -68,12 +54,11 @@ export default function LoginPage() {
   };
 
   const submitWalletName = async () => {
-    if (!username.trim()) return;
+    if (!username.trim() || !walletAddr) return;
     setLoading(true);
     setError(null);
     try {
-      const accounts = await (window as any).ethereum.request({ method: "eth_accounts" });
-      await walletAuth({ walletAddress: accounts[0], username: username.trim() });
+      await walletAuth({ walletAddress: walletAddr, username: username.trim() });
       await done();
     } catch (e: any) {
       setError(e?.message || "Could not create account");
@@ -153,11 +138,19 @@ export default function LoginPage() {
         {step === "home" && (
           <>
             <h1 className="font-display text-[28px] font-semibold">Sign in</h1>
-            <p className="mb-6 mt-2 text-[14px] text-dim">Wallet on desktop or inside the MetaMask app. Email works on any phone.</p>
-            <button onClick={goWallet} disabled={loading} className="mb-2.5 w-full rounded-xl bg-gradient-to-br from-violet-bright to-violet-deep py-3.5 text-sm font-semibold text-white shadow-glow disabled:opacity-50">
-              {loading ? "Connecting…" : isMobileBrowser() && !hasInjectedWallet() ? "Open in MetaMask" : "Connect wallet"}
+            <p className="mb-6 mt-2 text-[14px] text-dim">
+              Approve a signature in MetaMask or Trust Wallet. The page stays here — we do not bounce you into another browser.
+            </p>
+            <button onClick={() => goWallet("metamask")} disabled={loading} className="mb-2.5 w-full rounded-xl bg-gradient-to-br from-violet-bright to-violet-deep py-3.5 text-sm font-semibold text-white disabled:opacity-50">
+              {loading ? "Waiting for signature…" : "MetaMask"}
             </button>
-            <button onClick={() => setStep("otp")} className="mb-2.5 w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold dark:border-border-dark dark:bg-surface-dark">
+            <button onClick={() => goWallet("trust")} disabled={loading} className="mb-2.5 w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold dark:border-border-dark dark:bg-surface-dark disabled:opacity-50">
+              Trust Wallet
+            </button>
+            <button onClick={() => goWallet("walletconnect")} disabled={loading} className="mb-2.5 w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold dark:border-border-dark dark:bg-surface-dark disabled:opacity-50">
+              WalletConnect (QR / mobile wallets)
+            </button>
+            <button onClick={() => setStep("otp")} className="mb-2.5 w-full rounded-xl border border-border py-3.5 text-sm font-semibold dark:border-border-dark">
               Email one-time code
             </button>
             <button onClick={() => setStep("password")} className="w-full text-center text-[13px] text-faint underline">
@@ -181,11 +174,10 @@ export default function LoginPage() {
           <>
             <button onClick={() => setStep("otp")} className="mb-4 text-left text-sm text-faint">← Back</button>
             <h1 className="mb-2 font-display text-[24px] font-semibold">Enter code</h1>
-            <p className="mb-4 text-sm text-dim">Sent to {email}</p>
             {devCode && <p className="mb-3 text-xs text-gold">Dev mode code: {devCode}</p>}
             <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" inputMode="numeric" className="mb-3 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-center font-mono text-lg tracking-[0.3em] dark:border-border-dark dark:bg-surface-dark" />
             <button onClick={checkCode} disabled={loading || code.length < 4} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">
-              {loading ? "Checking…" : "Verify"}
+              Verify
             </button>
           </>
         )}
@@ -194,9 +186,7 @@ export default function LoginPage() {
           <>
             <h1 className="mb-4 font-display text-[24px] font-semibold">Pick a username</h1>
             <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className="mb-3 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm dark:border-border-dark dark:bg-surface-dark" />
-            <button onClick={finishNew} disabled={loading || username.trim().length < 3} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">
-              Create account
-            </button>
+            <button onClick={finishNew} disabled={loading || username.trim().length < 3} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">Create account</button>
           </>
         )}
 
@@ -204,9 +194,7 @@ export default function LoginPage() {
           <>
             <h1 className="mb-4 font-display text-[24px] font-semibold">Pick a username</h1>
             <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" className="mb-3 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm dark:border-border-dark dark:bg-surface-dark" />
-            <button onClick={submitWalletName} disabled={loading || username.trim().length < 3} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">
-              Continue
-            </button>
+            <button onClick={submitWalletName} disabled={loading || username.trim().length < 3} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">Continue</button>
           </>
         )}
 
@@ -215,10 +203,8 @@ export default function LoginPage() {
             <button onClick={() => setStep("home")} className="mb-4 text-left text-sm text-faint">← Back</button>
             <h1 className="mb-4 font-display text-[24px] font-semibold">Password</h1>
             <input value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="email or username" className="mb-2 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm dark:border-border-dark dark:bg-surface-dark" />
-            <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="password" type="password" className="mb-3 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm dark:border-border-dark dark:bg-surface-dark" />
-            <button onClick={doPassword} disabled={loading} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">
-              Sign in
-            </button>
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="password" className="mb-3 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-sm dark:border-border-dark dark:bg-surface-dark" />
+            <button onClick={doPassword} disabled={loading} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">Sign in</button>
           </>
         )}
       </div>
