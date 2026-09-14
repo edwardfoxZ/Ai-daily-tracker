@@ -4,15 +4,9 @@ import (
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("no .env file found, relying on real environment variables")
-	}
-
 	initDB()
 	defer db.Close()
 
@@ -31,6 +25,9 @@ func main() {
 
 	mux.HandleFunc("PATCH /api/me", updateMeHandler)
 	mux.HandleFunc("POST /api/me/wallet", linkWalletHandler)
+	mux.HandleFunc("GET /api/me/settings", getSettingsHandler)
+	mux.HandleFunc("PATCH /api/me/settings", updateSettingsHandler)
+	mux.HandleFunc("POST /api/friends", recordFriendHandler)
 
 	mux.HandleFunc("GET /api/users/search", searchUsersHandler)
 	mux.HandleFunc("GET /api/users/by-wallet", userByWalletHandler)
