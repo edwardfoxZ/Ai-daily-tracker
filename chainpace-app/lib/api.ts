@@ -100,7 +100,7 @@ export async function checkUsername(username: string): Promise<boolean> {
 }
 
 export function me() {
-  return apiFetch<{ user: ApiUser }>("/api/auth/me");
+  return apiFetch<{ user: ApiUser | null }>("/api/auth/me");
 }
 
 export function logout() {
@@ -118,6 +118,24 @@ export function linkWallet(walletAddress: string) {
   return apiFetch<{ user: ApiUser }>("/api/me/wallet", {
     method: "POST",
     body: JSON.stringify({ walletAddress }),
+  });
+}
+
+export function getSettings() {
+  return apiFetch<{ allowAnyoneMessage: boolean }>("/api/me/settings");
+}
+
+export function updateSettings(allowAnyoneMessage: boolean) {
+  return apiFetch<{ allowAnyoneMessage: boolean }>("/api/me/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ allowAnyoneMessage }),
+  });
+}
+
+export function recordFriend(payload: { userId?: number; walletAddress?: string }) {
+  return apiFetch<{ ok: boolean }>("/api/friends", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 
