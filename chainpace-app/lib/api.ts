@@ -1,4 +1,10 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+/** Same-origin /api is proxied by Next to Go so phones do not need localhost:8080. */
+const API_URL =
+  !process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL.includes("localhost:8080") ||
+  process.env.NEXT_PUBLIC_API_URL.includes("127.0.0.1:8080")
+    ? ""
+    : process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
 
 export interface ApiUser {
   id: number;
@@ -68,7 +74,7 @@ export function login(payload: { identifier: string; password: string }) {
 }
 
 export function requestOtp(email: string) {
-  return apiFetch<{ ok: boolean; sent: boolean; devCode?: string }>(
+  return apiFetch<{ ok: boolean; sent: boolean; devCode?: string; mailError?: string }>(
     "/api/auth/request-otp",
     { method: "POST", body: JSON.stringify({ email }) },
   );
