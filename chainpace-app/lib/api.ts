@@ -1,10 +1,20 @@
-/** Same-origin /api is proxied by Next to Go so phones do not need localhost:8080. */
+const raw = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+const isBrowserLocal =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+/**
+ * Local PC: talk to same-origin /api (Next proxies to Go).
+ * Vercel / phone on production: use NEXT_PUBLIC_API_URL (Render, etc).
+ */
 const API_URL =
-  !process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API_URL.includes("localhost:8080") ||
-  process.env.NEXT_PUBLIC_API_URL.includes("127.0.0.1:8080")
-    ? ""
-    : process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  !raw || raw.includes("localhost") || raw.includes("127.0.0.1")
+    ? isBrowserLocal || typeof window === "undefined"
+      ? ""
+      : raw.includes("localhost")
+        ? ""
+        : raw
+    : raw;
 
 export interface ApiUser {
   id: number;
@@ -39,7 +49,9 @@ class ApiError extends Error {
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const base =
+    raw && !raw.includes("localhost") && !raw.includes("127.0.0.1") ? raw : "";
+  const res = await fetch(`${base}${path}`, {
     ...options,
     credentials: "include",
     headers: {
