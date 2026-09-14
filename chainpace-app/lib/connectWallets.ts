@@ -1,6 +1,5 @@
 import { BrowserProvider } from "ethers";
-import { friendlyWalletError } from "@/lib/walletSession";
-import { WALLET_SESSION_KEY } from "@/lib/walletSession";
+import { friendlyWalletError, WALLET_SESSION_KEY } from "@/lib/walletSession";
 
 export const SEI_TESTNET = {
   chainId: 1328,
@@ -11,10 +10,17 @@ export const SEI_TESTNET = {
   nativeCurrency: { name: "SEI", symbol: "SEI", decimals: 18 },
 };
 
+const METAMASK_WC_ID = "c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96";
+
 let lastProvider: any = null;
 
 export function getWalletProvider() {
   return lastProvider;
+}
+
+function isMobile() {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 function injected(): any | null {
@@ -24,6 +30,18 @@ function injected(): any | null {
     return eth.providers.find((p: any) => p.isMetaMask) || eth.providers[0];
   }
   return eth ?? (window as any).trustwallet ?? null;
+}
+
+/** True only inside MetaMask / Trust in-app browsers, not phone Chrome/Safari. */
+function inWalletAppBrowser() {
+  const eth = injected();
+  if (!eth) return false;
+  if (eth.isTrust || eth.isTrustWallet) return true;
+  if (eth.isMetaMask && !eth.isBraveWallet && !eth.isRabby) {
+    // Phone Chrome sometimes exposes a stub isMetaMask that cannot open the app.
+    return isMobile() && /MetaMaskMobile|WebView|wv/i.test(navigator.userAgent);
+  }
+  return false;
 }
 
 function parseAccount(raw: string) {
@@ -40,9 +58,7 @@ async function accountsFrom(provider: any): Promise<string[]> {
     const list = Array.isArray(v) ? v : [v];
     for (const item of list) {
       const addr = parseAccount(String(item));
-      if (/^0x[a-fA-F0-9]{40}$/.test(addr) && !out.includes(addr.toLowerCase())) {
-        out.push(addr);
-      }
+      if (/^0x[a-fA-F0-9]{40}$/.test(addr) && !out.includes(addr.toLowerCase())) out.push(addr);
     }
   };
   push(provider?.accounts);
@@ -65,8 +81,7 @@ export async function getActiveChainId(): Promise<number | null> {
   const p = lastProvider || injected();
   if (!p?.request) return null;
   try {
-    const hex = await p.request({ method: "eth_chainId" });
-    return parseInt(String(hex), 16);
+    return parseInt(String(await p.request({ method: "eth_chainId" })), 16);
   } catch {
     return null;
   }
@@ -76,10 +91,7 @@ export async function addSeiTestnet(): Promise<{ added: boolean; reason?: string
   const p = lastProvider || injected();
   if (!p?.request) return { added: false, reason: "No wallet connected" };
   if (p.isTrust || p.isTrustWallet) {
-    return {
-      added: false,
-      reason: "Add Sei Testnet inside Trust Wallet. Auto-add only works in MetaMask.",
-    };
+    return { added: false, reason: "Add Sei Testnet inside Trust Wallet. Auto-add only works in MetaMask." };
   }
   try {
     await p.request({
@@ -114,11 +126,10 @@ async function connectInjected(): Promise<string> {
   if (!inj) throw new Error("NO_INJECTED");
   lastProvider = inj;
   const accounts = await accountsFrom(inj);
-  if (!accounts[0]) throw new Error("MetaMask returned no account. Unlock it and try again.");
+  if (!accounts[0]) throw new Error("Wallet returned no account. Unlock it and try again.");
   try {
     const provider = new BrowserProvider(inj);
-    const signer = await provider.getSigner();
-    await signer.signMessage("Chainpace login");
+    await (await provider.getSigner()).signMessage("Chainpace login");
   } catch (e: any) {
     throw new Error(friendlyWalletError(e));
   }
@@ -134,11 +145,13 @@ async function connectWalletConnect(): Promise<string> {
   const { EthereumProvider } = await import("@walletconnect/ethereum-provider");
   const wc = await EthereumProvider.init({
     projectId,
-    // Required chain 1 so MetaMask / Trust appear in the modal.
-    // Sei is optional; we switch/add it after connect.
     chains: [1],
     optionalChains: [SEI_TESTNET.chainId, 1329, 8453, 137],
     showQrModal: true,
+    qrModalOptions: {
+      themeMode: "dark",
+      explorerRecommendedWalletIds: [METAMASK_WC_ID],
+    },
     metadata: {
       name: "Chainpace",
       description: "Proof-of-habit",
@@ -157,7 +170,7 @@ async function connectWalletConnect(): Promise<string> {
   }
   const found = await accountsFrom(wc);
   if (!found[0]) {
-    throw new Error("Wallet session opened but no account yet. Approve in the wallet, then tap Connect again.");
+    throw new Error("Approve the session in MetaMask, then tap Connect wallet again.");
   }
   localStorage.setItem(WALLET_SESSION_KEY, JSON.stringify({ walletId: "walletconnect", kind: "evm" }));
   return found[0];
@@ -165,15 +178,17 @@ async function connectWalletConnect(): Promise<string> {
 
 export async function connectWallet(): Promise<string> {
   try {
-    if (injected()) {
+    // Desktop extension: use it.
+    if (!isMobile() && injected()) {
       return await connectInjected();
     }
+    // Opened inside MetaMask/Trust app browser: use inject.
+    if (isMobile() && inWalletAppBrowser()) {
+      return await connectInjected();
+    }
+    // Phone Chrome/Safari: WalletConnect sheet → MetaMask / Trust.
     return await connectWalletConnect();
   } catch (e: any) {
-    const msg = String(e?.message || e);
-    if (msg === "NO_INJECTED" || /missing|no injected/i.test(msg)) {
-      return await connectWalletConnect();
-    }
     throw new Error(friendlyWalletError(e));
   }
 }
