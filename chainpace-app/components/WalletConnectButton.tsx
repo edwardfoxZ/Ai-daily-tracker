@@ -17,10 +17,7 @@ export default function WalletConnectButton({
   const [chainId, setChainId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const refreshChain = async () => {
-    const id = await getActiveChainId();
-    setChainId(id);
-  };
+  const refreshChain = async () => setChainId(await getActiveChainId());
 
   useEffect(() => {
     refreshChain();
@@ -54,7 +51,7 @@ export default function WalletConnectButton({
     }
   };
 
-  const needSei = address && chainId !== null && chainId !== SEI_TESTNET.chainId;
+  const needSei = !!address && chainId !== null && chainId !== SEI_TESTNET.chainId;
 
   return (
     <div className="w-full">
@@ -72,7 +69,7 @@ export default function WalletConnectButton({
           <path d="M2 10h20" stroke="white" strokeWidth="1.7" />
           <circle cx="17" cy="14.5" r="1.2" fill="white" />
         </svg>
-        {busy ? "Waiting for wallet…" : address ? "Wallet connected" : "WalletConnect"}
+        {busy ? "Check MetaMask…" : address ? "Wallet connected" : "Connect wallet"}
       </button>
       {needSei && (
         <button
