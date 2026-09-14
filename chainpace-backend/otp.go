@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -62,6 +63,9 @@ func requestOtpHandler(w http.ResponseWriter, r *http.Request) {
 		"expires": expires,
 		"sent":    sent,
 	}
+	if sendErr != nil {
+		resp["mailError"] = sendErr.Error()
+	}
 	if !sent {
 		resp["devCode"] = code
 		log.Println("OTP for", email, "is", code)
@@ -116,7 +120,7 @@ func verifyOtpHandler(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(req.Username)
 	if username == "" {
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"isNew":             true,
+			"isNew":            true,
 			"requiresUsername": true,
 		})
 		return
@@ -146,21 +150,34 @@ func sixDigits() string {
 func sendOtpEmail(to, code string) (bool, error) {
 	key := os.Getenv("RESEND_API_KEY")
 	if key == "" {
-		return false, nil
+		return false, fmt.Errorf("RESEND_API_KEY is not set (put it in chainpace-backend/.env)")
 	}
-	from := os.Getenv("OTP_FROM_EMAIL")
-	if from == "" {
+	from := firstNonEmpty(
+		os.Getenv("OTP_FROM_EMAIL"),
+		os.Getenv("EMAIL_FROM"),
+		os.Getenv("RESEND_FROM"),
+	)
+	// Resend free tier can only send FROM onboarding@resend.dev until you verify a domain.
+	low := strings.ToLower(from)
+	if from == "" || strings.Contains(low, "gmail.com") || strings.Contains(low, "yahoo.") || strings.Contains(low, "outlook.") {
 		from = "Chainpace <onboarding@resend.dev>"
+	} else if !strings.Contains(from, "<") {
+		from = "Chainpace <" + from + ">"
 	}
-	body := fmt.Sprintf(`{"from":%q,"to":[%q],"subject":"Your Chainpace code","text":%q}`,
-		from, to, "Your one-time code is "+code+" (valid 10 minutes).")
-	req, err := http.NewRequest(http.MethodPost, "https://api.resend.com/emails", strings.NewReader(body))
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"from":    from,
+		"to":      []string{to},
+		"subject": "Your Chainpace code",
+		"text":    "Your one-time code is " + code + " (valid 10 minutes).",
+	})
+	httpReq, err := http.NewRequest(http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(payload))
 	if err != nil {
 		return false, err
 	}
-	req.Header.Set("Authorization", "Bearer "+key)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	httpReq.Header.Set("Authorization", "Bearer "+key)
+	httpReq.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return false, err
 	}
@@ -169,5 +186,15 @@ func sendOtpEmail(to, code string) (bool, error) {
 	if res.StatusCode >= 300 {
 		return false, fmt.Errorf("resend %s: %s", res.Status, slug)
 	}
+	log.Println("OTP emailed to", to, "from", from)
 	return true, nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }

@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	loadDotEnv()
 	initDB()
 	defer db.Close()
 
@@ -41,6 +42,6 @@ func main() {
 		port = "8080"
 	}
 
-	log.Println("🚀 Chainpace backend running at http://localhost:" + port)
+	log.Println("🚀 Chainpace backend running at http://0.0.0.0:" + port)
 	log.Fatal(http.ListenAndServe(":"+port, corsMiddleware(mux)))
 }
