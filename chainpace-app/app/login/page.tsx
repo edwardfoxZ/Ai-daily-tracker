@@ -25,6 +25,7 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [mailHint, setMailHint] = useState<string | null>(null);
   const [walletAddr, setWalletAddr] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,9 +71,12 @@ export default function LoginPage() {
   const sendCode = async () => {
     setLoading(true);
     setError(null);
+    setMailHint(null);
     try {
       const res = await requestOtp(email.trim());
       setDevCode(res.devCode || null);
+      if (res.sent) setMailHint("Code sent. Check inbox and spam.");
+      else if (res.mailError) setMailHint(res.mailError);
       setStep("otp-code");
     } catch (e: any) {
       setError(e?.message || "Could not send code");
@@ -134,12 +138,15 @@ export default function LoginPage() {
         {error && (
           <div className="mb-4 rounded-lg border border-coral/30 bg-coral/10 px-3 py-2 text-[13px] text-coral">{error}</div>
         )}
+        {mailHint && (
+          <div className="mb-4 rounded-lg border border-border px-3 py-2 text-[13px] text-dim dark:border-border-dark">{mailHint}</div>
+        )}
 
         {step === "home" && (
           <>
             <h1 className="font-display text-[28px] font-semibold">Sign in</h1>
             <p className="mb-6 mt-2 text-[14px] text-dim">
-              Approve a signature in MetaMask or Trust Wallet. The page stays here — we do not bounce you into another browser.
+              On a phone we open WalletConnect in this page. Approve in Trust or MetaMask, then you come back here.
             </p>
             <button onClick={() => goWallet("metamask")} disabled={loading} className="mb-2.5 w-full rounded-xl bg-gradient-to-br from-violet-bright to-violet-deep py-3.5 text-sm font-semibold text-white disabled:opacity-50">
               {loading ? "Waiting for signature…" : "MetaMask"}
@@ -148,7 +155,7 @@ export default function LoginPage() {
               Trust Wallet
             </button>
             <button onClick={() => goWallet("walletconnect")} disabled={loading} className="mb-2.5 w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold dark:border-border-dark dark:bg-surface-dark disabled:opacity-50">
-              WalletConnect (QR / mobile wallets)
+              WalletConnect
             </button>
             <button onClick={() => setStep("otp")} className="mb-2.5 w-full rounded-xl border border-border py-3.5 text-sm font-semibold dark:border-border-dark">
               Email one-time code
@@ -174,11 +181,9 @@ export default function LoginPage() {
           <>
             <button onClick={() => setStep("otp")} className="mb-4 text-left text-sm text-faint">← Back</button>
             <h1 className="mb-2 font-display text-[24px] font-semibold">Enter code</h1>
-            {devCode && <p className="mb-3 text-xs text-gold">Dev mode code: {devCode}</p>}
+            {devCode && <p className="mb-3 text-xs text-gold">Dev fallback code: {devCode}</p>}
             <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="6-digit code" inputMode="numeric" className="mb-3 w-full rounded-lg border border-border bg-surface px-3.5 py-3 text-center font-mono text-lg tracking-[0.3em] dark:border-border-dark dark:bg-surface-dark" />
-            <button onClick={checkCode} disabled={loading || code.length < 4} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">
-              Verify
-            </button>
+            <button onClick={checkCode} disabled={loading || code.length < 4} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">Verify</button>
           </>
         )}
 
