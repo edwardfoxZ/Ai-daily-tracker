@@ -1,4 +1,5 @@
 import { BrowserProvider } from "ethers";
+import { friendlyWalletError } from "@/lib/walletSession";
 
 export type MobileWallet = "metamask" | "trust" | "walletconnect";
 
@@ -61,25 +62,29 @@ async function connectWalletConnect(): Promise<string> {
     const signer = await provider.getSigner();
     await signer.signMessage("Chainpace login");
   } catch (e: any) {
-    if (e?.code === 4001) throw new Error("Signature rejected");
+    throw new Error(friendlyWalletError(e));
   }
   return accts[0];
 }
 
 export async function connectInjectedOrWc(kind: MobileWallet): Promise<string> {
-  const useInjected = pickInjected(kind) && (!isMobile() || inWalletBrowser());
-  if (useInjected) {
-    const inj = pickInjected(kind)!;
-    const accounts: string[] = await inj.request({ method: "eth_requestAccounts" });
-    if (!accounts?.[0]) throw new Error("No account returned");
-    try {
-      const provider = new BrowserProvider(inj);
-      const signer = await provider.getSigner();
-      await signer.signMessage("Chainpace login");
-    } catch (e: any) {
-      if (e?.code === 4001) throw new Error("Signature rejected");
+  try {
+    const useInjected = pickInjected(kind) && (!isMobile() || inWalletBrowser());
+    if (useInjected) {
+      const inj = pickInjected(kind)!;
+      const accounts: string[] = await inj.request({ method: "eth_requestAccounts" });
+      if (!accounts?.[0]) throw new Error("No account returned");
+      try {
+        const provider = new BrowserProvider(inj);
+        const signer = await provider.getSigner();
+        await signer.signMessage("Chainpace login");
+      } catch (e: any) {
+        throw new Error(friendlyWalletError(e));
+      }
+      return accounts[0];
     }
-    return accounts[0];
+    return await connectWalletConnect();
+  } catch (e: any) {
+    throw new Error(friendlyWalletError(e));
   }
-  return connectWalletConnect();
 }
