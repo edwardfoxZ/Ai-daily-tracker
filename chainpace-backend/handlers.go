@@ -18,23 +18,6 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
-// setAuthCookie attaches the JWT as an httpOnly cookie.
-func setAuthCookie(w http.ResponseWriter, token string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     "chainpace_token",
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   60 * 60 * 24 * 7, // 7 days
-		// Secure: true, // enable once you're serving over HTTPS
-	})
-}
-
-/* -------------------------------------------------
-   POST /api/auth/signup   (email or phone signup)
-------------------------------------------------- */
-
 type signupRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
@@ -88,13 +71,8 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setAuthCookie(w, token)
-
 	writeJSON(w, http.StatusCreated, map[string]interface{}{"user": user})
 }
-
-/* -------------------------------------------------
-   POST /api/auth/login   (email/phone/username + password)
-------------------------------------------------- */
 
 type loginRequest struct {
 	Identifier string `json:"identifier"`
@@ -126,19 +104,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setAuthCookie(w, token)
-
 	writeJSON(w, http.StatusOK, map[string]interface{}{"user": user})
 }
 
-/* -------------------------------------------------
-   POST /api/auth/wallet   (wallet-only signup or login)
-   If the wallet address already has an account -> log in.
-   If not -> create a new account with the given username.
-------------------------------------------------- */
-
 type walletAuthRequest struct {
 	WalletAddress string `json:"walletAddress"`
-	Username      string `json:"username"` // only required if this is a new wallet
+	Username      string `json:"username"`
 }
 
 func walletAuthHandler(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +126,6 @@ func walletAuthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// existing wallet -> log in
 	if user, err := FindUserByWallet(req.WalletAddress); err == nil {
 		token, err := generateToken(user.ID, user.Username)
 		if err != nil {
@@ -167,7 +137,6 @@ func walletAuthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// new wallet -> requires username to create the account
 	if req.Username == "" {
 		writeJSON(w, http.StatusOK, map[string]interface{}{"isNew": true, "requiresUsername": true})
 		return
@@ -188,10 +157,6 @@ func walletAuthHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]interface{}{"user": user, "isNew": true})
 }
 
-/* -------------------------------------------------
-   GET /api/auth/check-username?username=xyz
-------------------------------------------------- */
-
 func checkUsernameHandler(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.URL.Query().Get("username"))
 	if len(username) < 3 {
@@ -205,10 +170,6 @@ func checkUsernameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"available": !taken})
 }
-
-/* -------------------------------------------------
-   GET /api/auth/me   (read the current session from cookie)
-------------------------------------------------- */
 
 func meHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("chainpace_token")
@@ -228,10 +189,6 @@ func meHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]interface{}{"user": user})
 }
-
-/* -------------------------------------------------
-   POST /api/auth/logout
-------------------------------------------------- */
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
