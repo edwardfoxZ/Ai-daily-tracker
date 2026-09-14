@@ -146,6 +146,10 @@ func sendMessageHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Invalid recipient")
 		return
 	}
+	if !AreFriendsSQL(me.ID, req.ToUserID) && !GetAllowAnyone(req.ToUserID) {
+		writeError(w, http.StatusForbidden, "Only friends can message this user")
+		return
+	}
 	msg, err := InsertMessage(me.ID, req.ToUserID, req.Body)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
