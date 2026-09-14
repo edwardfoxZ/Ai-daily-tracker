@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { addSeiTestnet, connectWallet, getActiveChainId, SEI_TESTNET } from "@/lib/connectWallets";
+import { useState } from "react";
+import { connectWallet } from "@/lib/connectWallets";
 import { friendlyWalletError } from "@/lib/walletSession";
 
 export default function WalletConnectButton({
@@ -14,15 +14,7 @@ export default function WalletConnectButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
-  const [chainId, setChainId] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
-
-  const refreshChain = async () => setChainId(await getActiveChainId());
-
-  useEffect(() => {
-    refreshChain();
-  }, [address]);
 
   const connect = async () => {
     setError(null);
@@ -33,7 +25,6 @@ export default function WalletConnectButton({
       setAddress(addr);
       setHint(null);
       await onConnected(addr);
-      await refreshChain();
     } catch (e: any) {
       setHint(null);
       setError(friendlyWalletError(e));
@@ -41,21 +32,6 @@ export default function WalletConnectButton({
       setBusy(false);
     }
   };
-
-  const addNetwork = async () => {
-    setError(null);
-    setAdding(true);
-    try {
-      await addSeiTestnet();
-      await refreshChain();
-    } catch (e: any) {
-      setError(friendlyWalletError(e));
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const needSei = !!address && chainId !== null && chainId !== SEI_TESTNET.chainId;
 
   return (
     <div className="w-full">
@@ -75,29 +51,18 @@ export default function WalletConnectButton({
       >
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E2761B]">
           <svg width="26" height="26" viewBox="0 0 35 33" fill="none" aria-hidden>
-            <path d="M32.96 1L19.74 10.79l2.45-5.74L32.96 1z" fill="#E2761B" stroke="#E2761B" strokeLinejoin="round"/>
-            <path d="M2.04 1l13.1 9.88-2.33-5.83L2.04 1zM28.23 23.53l-3.5 5.36 7.5 2.06 2.15-7.3-6.15-.12zM.64 23.64l2.14 7.3 7.49-2.06-3.5-5.36-6.13.12z" fill="#E4761B" stroke="#E4761B" strokeLinejoin="round"/>
+            <path d="M32.96 1L19.74 10.79l2.45-5.74L32.96 1z" fill="#E2761B" stroke="#E2761B" strokeLinejoin="round" />
+            <path d="M2.04 1l13.1 9.88-2.33-5.83L2.04 1zM28.23 23.53l-3.5 5.36 7.5 2.06 2.15-7.3-6.15-.12zM.64 23.64l2.14 7.3 7.49-2.06-3.5-5.36-6.13.12z" fill="#E4761B" stroke="#E4761B" strokeLinejoin="round" />
           </svg>
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-semibold">MetaMask</span>
           <span className="block text-[12px] text-faint">
-            {busy ? "Approve in the MetaMask app" : address ? "Connected" : "Popular browsers — tap to open the app"}
+            {busy ? "Approve the MetaMask popup" : address ? "Connected" : "Connect — Sei Testnet popup if needed"}
           </span>
         </span>
         <span className="text-[12px] font-semibold text-violet-bright">{busy ? "…" : "Connect"}</span>
       </button>
-
-      {needSei && (
-        <button
-          type="button"
-          onClick={addNetwork}
-          disabled={adding}
-          className="mt-2.5 w-full rounded-xl border border-gold/40 bg-gold/10 py-3 text-sm font-semibold text-gold"
-        >
-          {adding ? "Adding Sei Testnet…" : "Add Sei Testnet to MetaMask"}
-        </button>
-      )}
     </div>
   );
 }

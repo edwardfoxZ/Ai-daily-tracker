@@ -73,20 +73,25 @@ export async function getActiveChainId(): Promise<number | null> {
   }
 }
 
-export async function addSeiTestnet(): Promise<{ added: boolean; reason?: string }> {
-  const p = lastProvider || injected();
-  if (!p?.request) return { added: false, reason: "No wallet connected" };
-  if (p.isTrust || p.isTrustWallet) {
-    return { added: false, reason: "Add Sei Testnet inside Trust Wallet. Auto-add only works in MetaMask." };
+/** Triggers MetaMask's native Add / Switch network popup. Never throws. */
+export async function promptSeiInMetaMask(provider?: any) {
+  const p = provider || lastProvider || injected();
+  if (!p?.request) return;
+  if (p.isTrust || p.isTrustWallet) return;
+  try {
+    const hex = await p.request({ method: "eth_chainId" });
+    if (parseInt(String(hex), 16) === SEI_TESTNET.chainId) return;
+  } catch {
+    /* still try add */
   }
   try {
     await p.request({
       method: "wallet_switchEthereumChain",
       params: [{ chainId: SEI_TESTNET.hexId }],
     });
-    return { added: true };
-  } catch (switchErr: any) {
-    if (switchErr?.code === 4001) throw new Error(friendlyWalletError(switchErr));
+    return;
+  } catch {
+    /* 4902 = not added yet */
   }
   try {
     await p.request({
@@ -101,9 +106,8 @@ export async function addSeiTestnet(): Promise<{ added: boolean; reason?: string
         },
       ],
     });
-    return { added: true };
-  } catch (e: any) {
-    throw new Error(friendlyWalletError(e));
+  } catch {
+    /* user closed the MetaMask popup — login still counts */
   }
 }
 
@@ -123,6 +127,7 @@ async function connectInjectedMetaMask(): Promise<string> {
   const accounts = await accountsFrom(inj);
   if (!accounts[0]) throw new Error("MetaMask returned no account. Unlock it and try again.");
   await signLogin(inj);
+  await promptSeiInMetaMask(inj);
   localStorage.setItem(WALLET_SESSION_KEY, JSON.stringify({ walletId: "metamask", kind: "evm" }));
   return accounts[0];
 }
@@ -130,7 +135,6 @@ async function connectInjectedMetaMask(): Promise<string> {
 function openMetaMask(uri: string) {
   const encoded = encodeURIComponent(uri);
   const url = `https://metamask.app.link/wc?uri=${encoded}`;
-  // Stay on this page if possible; fall back to navigation.
   const w = window.open(url, "_blank");
   if (!w) window.location.href = url;
 }
@@ -159,6 +163,7 @@ async function connectMetaMaskWalletConnect(): Promise<string> {
     const existing = await accountsFrom(wc);
     if (existing[0]) {
       await signLogin(wc);
+      await promptSeiInMetaMask(wc);
       return existing[0];
     }
   }
@@ -166,17 +171,12 @@ async function connectMetaMaskWalletConnect(): Promise<string> {
   const uriReady = new Promise<string>((resolve) => {
     wc.on("display_uri", (uri: string) => resolve(uri));
   });
-
   const connecting = wc.connect();
   const uri = await Promise.race([
     uriReady,
     new Promise<string>((_, reject) => setTimeout(() => reject(new Error("WalletConnect timed out")), 20000)),
   ]);
-
-  if (isMobile()) {
-    openMetaMask(uri);
-  }
-
+  if (isMobile()) openMetaMask(uri);
   await connecting;
   try {
     await wc.enable();
@@ -188,11 +188,11 @@ async function connectMetaMaskWalletConnect(): Promise<string> {
     throw new Error("Approve the request inside MetaMask, then tap MetaMask again.");
   }
   await signLogin(wc);
+  await promptSeiInMetaMask(wc);
   localStorage.setItem(WALLET_SESSION_KEY, JSON.stringify({ walletId: "metamask", kind: "evm" }));
   return found[0];
 }
 
-/** Desktop extension or phone → MetaMask only. */
 export async function connectWallet(): Promise<string> {
   try {
     if (!isMobile() && injected()) {
