@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
+import WalletConnectButton from "@/components/WalletConnectButton";
 import { useUser } from "@/lib/user-context";
 import {
   walletAuth,
@@ -11,7 +12,6 @@ import {
   login as passwordLogin,
   ApiError,
 } from "@/lib/api";
-import { connectInjectedOrWc, MobileWallet } from "@/lib/connectWallets";
 
 type Step = "home" | "otp" | "otp-code" | "otp-username" | "password" | "wallet-name";
 
@@ -35,23 +35,14 @@ export default function LoginPage() {
     router.push("/dashboard");
   };
 
-  const goWallet = async (kind: MobileWallet) => {
-    setError(null);
-    setLoading(true);
-    try {
-      const addr = await connectInjectedOrWc(kind);
-      setWalletAddr(addr);
-      const res = await walletAuth({ walletAddress: addr });
-      if (res.requiresUsername || (res.isNew && !res.user)) {
-        setStep("wallet-name");
-        return;
-      }
-      await done();
-    } catch (e: any) {
-      setError(e instanceof ApiError ? e.message : e?.message || "Wallet connect failed");
-    } finally {
-      setLoading(false);
+  const afterWallet = async (addr: string) => {
+    setWalletAddr(addr);
+    const res = await walletAuth({ walletAddress: addr });
+    if (res.requiresUsername || (res.isNew && !res.user)) {
+      setStep("wallet-name");
+      return;
     }
+    await done();
   };
 
   const submitWalletName = async () => {
@@ -62,7 +53,7 @@ export default function LoginPage() {
       await walletAuth({ walletAddress: walletAddr, username: username.trim() });
       await done();
     } catch (e: any) {
-      setError(e?.message || "Could not create account");
+      setError(e instanceof ApiError ? e.message : e?.message || "Could not create account");
     } finally {
       setLoading(false);
     }
@@ -146,21 +137,13 @@ export default function LoginPage() {
           <>
             <h1 className="font-display text-[28px] font-semibold">Sign in</h1>
             <p className="mb-6 mt-2 text-[14px] text-dim">
-              On a phone we open WalletConnect in this page. Approve in Trust or MetaMask, then you come back here.
+              Connect once. If you are not on Sei Testnet, MetaMask can add it automatically.
             </p>
-            <button onClick={() => goWallet("metamask")} disabled={loading} className="mb-2.5 w-full rounded-xl bg-gradient-to-br from-violet-bright to-violet-deep py-3.5 text-sm font-semibold text-white disabled:opacity-50">
-              {loading ? "Waiting for signature…" : "MetaMask"}
-            </button>
-            <button onClick={() => goWallet("trust")} disabled={loading} className="mb-2.5 w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold dark:border-border-dark dark:bg-surface-dark disabled:opacity-50">
-              Trust Wallet
-            </button>
-            <button onClick={() => goWallet("walletconnect")} disabled={loading} className="mb-2.5 w-full rounded-xl border border-border bg-surface py-3.5 text-sm font-semibold dark:border-border-dark dark:bg-surface-dark disabled:opacity-50">
-              WalletConnect
-            </button>
-            <button onClick={() => setStep("otp")} className="mb-2.5 w-full rounded-xl border border-border py-3.5 text-sm font-semibold dark:border-border-dark">
+            <WalletConnectButton onConnected={afterWallet} />
+            <button onClick={() => setStep("otp")} className="mt-3 w-full rounded-xl border border-border py-3.5 text-sm font-semibold dark:border-border-dark">
               Email one-time code
             </button>
-            <button onClick={() => setStep("password")} className="w-full text-center text-[13px] text-faint underline">
+            <button onClick={() => setStep("password")} className="mt-3 w-full text-center text-[13px] text-faint underline">
               Use password instead
             </button>
           </>
