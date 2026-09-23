@@ -17,7 +17,7 @@ func ensureWelcome(userID int64) {
 	if n > 0 {
 		return
 	}
-	_, _ = insertAgentMessage(userID, "assistant", "I am Pace, your private coach. Tell me what you want to keep this month. I will classify it and give one experiment.", "on_track", nil)
+	_, _ = insertAgentMessage(userID, "assistant", "I am Pace, your private coach. Tell me what you want to keep this month. I will only save it when you confirm.", "on_track", nil)
 }
 
 func insertAgentMessage(userID int64, role, body, state string, cta *CTA) (*AgentMessage, error) {
@@ -112,47 +112,9 @@ func diagnoseState(userID int64) string {
 	return "on_track"
 }
 
-func maybeSaveRoutineFromText(userID int64, text string) {
-	if len(strings.TrimSpace(text)) < 8 {
-		return
-	}
-	lower := strings.ToLower(text)
-	name := "Noted plan"
-	if strings.Contains(lower, "morning") {
-		name = "Morning stack"
-	}
-	if strings.Contains(lower, "night") || strings.Contains(lower, "evening") {
-		name = "Evening stack"
-	}
-	_, _ = db.Exec(`INSERT INTO agent_routines (user_id, name, habits_text) VALUES (?, ?, ?)`, userID, name, text)
-}
-
 func playbookOnMiss(userID int64, habit string) (string, string, *CTA) {
 	state := diagnoseState(userID)
 	return "Logged the miss on " + habit + ". Do the 2-minute version for 3 days, then the original.", state, &CTA{Kind: "shrink_habit", Label: "Try the 7-day smaller version", Payload: habit}
-}
-
-func playbookChat(userID int64, userText string) (string, string, *CTA) {
-	state := diagnoseState(userID)
-	lower := strings.ToLower(userText)
-	cat := classifyHabit(userText)
-	label := map[string]string{"mind": "Mind", "money": "Money", "social_credit": "Social credit", "body": "Body"}[cat]
-	if label == "" {
-		label = "Mind"
-	}
-	_, _ = db.Exec(`INSERT INTO agent_memories (user_id, kind, text) VALUES (?, 'note', ?)`, userID, userText)
-	switch {
-	case strings.Contains(lower, "hello") || strings.Contains(lower, "hi ") || lower == "hi" || strings.Contains(lower, "hey"):
-		return "Hey. I track four slices: mind, money, social credit, body. What are you trying to keep this week?", state, nil
-	case strings.Contains(lower, "why") || strings.Contains(lower, "mindset") || strings.Contains(lower, "analy"):
-		return "Mindset here means where your reps actually go. If one slice is empty for a week, that is the gap. Name one action in the weak slice and I will watch it for 7 days.", state, &CTA{Kind: "shrink_habit", Label: "Watch this for 7 days", Payload: userText}
-	case strings.Contains(lower, "skip") || strings.Contains(lower, "can't") || strings.Contains(lower, "cannot") || strings.Contains(lower, "inconsist") || strings.Contains(lower, "fail") || strings.Contains(lower, "hard"):
-		return "Got it: " + clip(userText, 80) + ". That sits in " + label + ". Shrink it to 5 minutes for 7 days instead of quitting.", state, &CTA{Kind: "shrink_habit", Label: "Shrink it for 7 days", Payload: userText}
-	case strings.Contains(lower, "routine") || strings.Contains(lower, "every day") || strings.Contains(lower, "weekdays") || strings.Contains(lower, "plan"):
-		return "Saved that under " + label + ". Confirm it as the stack I should protect this week?", state, &CTA{Kind: "save_routine", Label: "Confirm this routine", Payload: userText}
-	default:
-		return "I filed that under " + label + ": " + clip(userText, 90) + ". One experiment: tiny version tomorrow at a fixed time. Confirm and I will treat it as a 7-day priority.", state, &CTA{Kind: "save_routine", Label: "Track this for 7 days", Payload: userText}
-	}
 }
 
 func clip(s string, n int) string {
@@ -204,7 +166,7 @@ func groqCoach(userID int64, userText, key string) (string, string, *CTA, error)
 		base = "https://api.groq.com/openai/v1"
 	}
 	models := []string{os.Getenv("LLM_MODEL"), "llama-3.1-8b-instant", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"}
-	system := "You are Pace, a private consistency coach in Chainpace. Always answer the user's last message directly. 2-5 short sentences. Classify as mind, money, social credit, or body when you can. One next action. Never shame. Optional last line: CTA: save_routine | Track this for 7 days"
+	system := "You are Pace. Answer the last message directly. If it is a question, answer it. Do not invent a new habit unless the user stated one. 2-5 short sentences. Never shame."
 	var lastErr error
 	for _, model := range models {
 		model = strings.TrimSpace(model)
@@ -213,7 +175,7 @@ func groqCoach(userID int64, userText, key string) (string, string, *CTA, error)
 		}
 		payload, _ := json.Marshal(groqReq{Model: model, Temperature: 0.5, Messages: []groqMsg{
 			{Role: "system", Content: system},
-			{Role: "user", Content: "Consistency state: " + state + "\nUser said: " + userText},
+			{Role: "user", Content: "State: " + state + "\nUser: " + userText},
 		}})
 		req, err := http.NewRequest(http.MethodPost, strings.TrimRight(base, "/")+"/chat/completions", bytes.NewReader(payload))
 		if err != nil {
@@ -267,7 +229,7 @@ func parseCTALine(content *string) *CTA {
 		if strings.HasPrefix(strings.ToUpper(trim), "CTA:") {
 			rest := strings.TrimSpace(trim[4:])
 			parts := strings.SplitN(rest, "|", 2)
-			kind, label := "save_routine", "Track this for 7 days"
+			kind, label := "save_routine", "Save this routine"
 			if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
 				kind = strings.TrimSpace(parts[0])
 			}
