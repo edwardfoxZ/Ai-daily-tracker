@@ -42,6 +42,7 @@ func main() {
 	mux.HandleFunc("POST /api/agent/event", agentEventHandler)
 	mux.HandleFunc("POST /api/agent/cta", agentCtaHandler)
 	mux.HandleFunc("GET /api/agent/profile", agentProfileHandler)
+	mux.HandleFunc("GET /api/agent/mindset", agentMindsetHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
