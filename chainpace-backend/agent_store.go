@@ -17,7 +17,7 @@ func ensureWelcome(userID int64) {
 	if n > 0 {
 		return
 	}
-	_, _ = insertAgentMessage(userID, "assistant", "I am Pace, your private coach. Tell me what you want to keep this month — gym, money, reading, friends. I will classify it and give one experiment.", "on_track", nil)
+	_, _ = insertAgentMessage(userID, "assistant", "I am Pace, your private coach. Tell me what you want to keep this month. I will classify it and give one experiment.", "on_track", nil)
 }
 
 func insertAgentMessage(userID int64, role, body, state string, cta *CTA) (*AgentMessage, error) {
@@ -129,34 +129,29 @@ func maybeSaveRoutineFromText(userID int64, text string) {
 
 func playbookOnMiss(userID int64, habit string) (string, string, *CTA) {
 	state := diagnoseState(userID)
-	reply := "Logged the miss on " + habit + ". Do the 2-minute version for 3 days, then the original."
-	return reply, state, &CTA{Kind: "shrink_habit", Label: "Try the 7-day smaller version", Payload: habit}
+	return "Logged the miss on " + habit + ". Do the 2-minute version for 3 days, then the original.", state, &CTA{Kind: "shrink_habit", Label: "Try the 7-day smaller version", Payload: habit}
 }
 
 func playbookChat(userID int64, userText string) (string, string, *CTA) {
 	state := diagnoseState(userID)
 	lower := strings.ToLower(userText)
-	cat := "mind"
-	if classifyHabit != nil {
-		cat = classifyHabit(userText)
-	}
+	cat := classifyHabit(userText)
 	label := map[string]string{"mind": "Mind", "money": "Money", "social_credit": "Social credit", "body": "Body"}[cat]
 	if label == "" {
 		label = "Mind"
 	}
 	_, _ = db.Exec(`INSERT INTO agent_memories (user_id, kind, text) VALUES (?, 'note', ?)`, userID, userText)
-
 	switch {
 	case strings.Contains(lower, "hello") || strings.Contains(lower, "hi ") || lower == "hi" || strings.Contains(lower, "hey"):
 		return "Hey. I track four slices: mind, money, social credit, body. What are you trying to keep this week?", state, nil
 	case strings.Contains(lower, "why") || strings.Contains(lower, "mindset") || strings.Contains(lower, "analy"):
-		return "Mindset here means where your reps actually go. If one slice is empty for a week, that is the gap — not a personality defect. Name one action in the weak slice and I will watch it for 7 days.", state, &CTA{Kind: "shrink_habit", Label: "Watch this for 7 days", Payload: userText}
+		return "Mindset here means where your reps actually go. If one slice is empty for a week, that is the gap. Name one action in the weak slice and I will watch it for 7 days.", state, &CTA{Kind: "shrink_habit", Label: "Watch this for 7 days", Payload: userText}
 	case strings.Contains(lower, "skip") || strings.Contains(lower, "can't") || strings.Contains(lower, "cannot") || strings.Contains(lower, "inconsist") || strings.Contains(lower, "fail") || strings.Contains(lower, "hard"):
-		return "Got it: “" + clip(userText, 80) + "”. That sits in " + label + ". Shrink it to 5 minutes for 7 days instead of quitting.", state, &CTA{Kind: "shrink_habit", Label: "Shrink it for 7 days", Payload: userText}
+		return "Got it: " + clip(userText, 80) + ". That sits in " + label + ". Shrink it to 5 minutes for 7 days instead of quitting.", state, &CTA{Kind: "shrink_habit", Label: "Shrink it for 7 days", Payload: userText}
 	case strings.Contains(lower, "routine") || strings.Contains(lower, "every day") || strings.Contains(lower, "weekdays") || strings.Contains(lower, "plan"):
 		return "Saved that under " + label + ". Confirm it as the stack I should protect this week?", state, &CTA{Kind: "save_routine", Label: "Confirm this routine", Payload: userText}
 	default:
-		return "I filed that under " + label + ": “" + clip(userText, 90) + "”. One experiment: do a tiny version tomorrow at a fixed time. Confirm and I will treat it as a 7-day priority.", state, &CTA{Kind: "save_routine", Label: "Track this for 7 days", Payload: userText}
+		return "I filed that under " + label + ": " + clip(userText, 90) + ". One experiment: tiny version tomorrow at a fixed time. Confirm and I will treat it as a 7-day priority.", state, &CTA{Kind: "save_routine", Label: "Track this for 7 days", Payload: userText}
 	}
 }
 
@@ -165,7 +160,7 @@ func clip(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	return s[:n] + "..."
 }
 
 func coachReply(userID int64, userText string) (string, string, *CTA) {
