@@ -37,6 +37,12 @@ func main() {
 	mux.HandleFunc("POST /api/messages", sendMessageHandler)
 	mux.HandleFunc("GET /api/conversations", listConversationsHandler)
 
+	mux.HandleFunc("GET /api/agent/thread", agentThreadHandler)
+	mux.HandleFunc("POST /api/agent/chat", agentChatHandler)
+	mux.HandleFunc("POST /api/agent/event", agentEventHandler)
+	mux.HandleFunc("POST /api/agent/cta", agentCtaHandler)
+	mux.HandleFunc("GET /api/agent/profile", agentProfileHandler)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
