@@ -36,6 +36,8 @@ func main() {
 	mux.HandleFunc("GET /api/messages", listMessagesHandler)
 	mux.HandleFunc("POST /api/messages", sendMessageHandler)
 	mux.HandleFunc("GET /api/conversations", listConversationsHandler)
+	mux.HandleFunc("GET /api/thread-link", threadLinkHandler)
+	mux.HandleFunc("GET /api/thread-open", threadOpenHandler)
 
 	mux.HandleFunc("GET /api/agent/thread", agentThreadHandler)
 	mux.HandleFunc("POST /api/agent/chat", agentChatHandler)
