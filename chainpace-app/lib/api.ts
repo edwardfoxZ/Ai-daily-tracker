@@ -3,10 +3,6 @@ const isBrowserLocal =
   typeof window !== "undefined" &&
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
-/**
- * Local PC: talk to same-origin /api (Next proxies to Go).
- * Vercel / phone on production: use NEXT_PUBLIC_API_URL (Render, etc).
- */
 const API_URL =
   !raw || raw.includes("localhost") || raw.includes("127.0.0.1")
     ? isBrowserLocal || typeof window === "undefined"
@@ -178,6 +174,64 @@ export function sendMessage(toUserId: number, body: string) {
 
 export function listConversations() {
   return apiFetch<{ conversations: Conversation[] }>("/api/conversations");
+}
+
+export interface AgentCTA {
+  id: number;
+  kind: string;
+  label: string;
+  payload?: string;
+  status?: string;
+}
+
+export interface AgentChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  body: string;
+  state?: string;
+  cta?: AgentCTA | null;
+  createdAt: string;
+}
+
+export interface AgentRoutine {
+  id: number;
+  name: string;
+  trigger: string;
+  timeWindow: string;
+  habitsText: string;
+}
+
+export function agentThread() {
+  return apiFetch<{ messages: AgentChatMessage[] }>("/api/agent/thread");
+}
+
+export function agentChat(message: string) {
+  return apiFetch<{ message: AgentChatMessage; state: string; cta?: AgentCTA | null }>(
+    "/api/agent/chat",
+    { method: "POST", body: JSON.stringify({ message }) },
+  );
+}
+
+export function agentEvent(payload: { habitName: string; status: string; note?: string }) {
+  return apiFetch<{ ok: boolean; notify: boolean; state: string; message?: AgentChatMessage }>(
+    "/api/agent/event",
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
+export function agentCta(id: number, accept: boolean) {
+  return apiFetch<{ ok: boolean; message: AgentChatMessage; accepted: boolean }>(
+    "/api/agent/cta",
+    { method: "POST", body: JSON.stringify({ id, accept }) },
+  );
+}
+
+export function agentProfile() {
+  return apiFetch<{
+    state: string;
+    routines: AgentRoutine[];
+    memories: { id: number; kind: string; text: string }[];
+  }>("/api/agent/profile");
 }
 
 export { ApiError };
