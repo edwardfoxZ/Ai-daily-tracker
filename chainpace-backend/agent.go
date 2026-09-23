@@ -1,14 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
-	"log"
 	"net/http"
-	"os"
-	"strings"
-	"time"
 )
 
 type AgentMessage struct {
