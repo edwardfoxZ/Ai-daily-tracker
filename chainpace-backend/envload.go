@@ -14,8 +14,13 @@ func loadDotEnv() {
 			continue
 		}
 		sc := bufio.NewScanner(f)
+		first := true
 		for sc.Scan() {
 			line := strings.TrimSpace(sc.Text())
+			if first {
+				line = strings.TrimPrefix(line, "\ufeff")
+				first = false
+			}
 			if line == "" || strings.HasPrefix(line, "#") {
 				continue
 			}
@@ -23,9 +28,9 @@ func loadDotEnv() {
 			if !ok {
 				continue
 			}
-			k = strings.TrimSpace(k)
+			k = strings.TrimSpace(strings.TrimPrefix(k, "\ufeff"))
 			v = strings.TrimSpace(v)
-			v = strings.Trim(v, `"'`)
+			v = strings.Trim(v, "\"'")
 			if os.Getenv(k) == "" {
 				_ = os.Setenv(k, v)
 			}
