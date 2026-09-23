@@ -17,7 +17,7 @@ func ensureWelcome(userID int64) {
 	if n > 0 {
 		return
 	}
-	_, _ = insertAgentMessage(userID, "assistant", "I am Pace, your private coach. Tell me the 1-3 things you want to keep this month. I will save them as a routine and watch consistency.", "on_track", nil)
+	_, _ = insertAgentMessage(userID, "assistant", "I am Pace, your private coach. Tell me what you want to keep this month — gym, money, reading, friends. I will classify it and give one experiment.", "on_track", nil)
 }
 
 func insertAgentMessage(userID int64, role, body, state string, cta *CTA) (*AgentMessage, error) {
@@ -113,43 +113,70 @@ func diagnoseState(userID int64) string {
 }
 
 func maybeSaveRoutineFromText(userID int64, text string) {
-	lower := strings.ToLower(text)
-	if !(strings.Contains(lower, "routine") || strings.Contains(lower, "every day") || strings.Contains(lower, "weekdays") || strings.Contains(lower, "after coffee")) {
+	if len(strings.TrimSpace(text)) < 8 {
 		return
 	}
-	name := "Personal routine"
+	lower := strings.ToLower(text)
+	name := "Noted plan"
 	if strings.Contains(lower, "morning") {
 		name = "Morning stack"
+	}
+	if strings.Contains(lower, "night") || strings.Contains(lower, "evening") {
+		name = "Evening stack"
 	}
 	_, _ = db.Exec(`INSERT INTO agent_routines (user_id, name, habits_text) VALUES (?, ?, ?)`, userID, name, text)
 }
 
 func playbookOnMiss(userID int64, habit string) (string, string, *CTA) {
 	state := diagnoseState(userID)
-	reply := "Logged the miss on " + habit + ". Smallest version for 3 days, then the original."
+	reply := "Logged the miss on " + habit + ". Do the 2-minute version for 3 days, then the original."
 	return reply, state, &CTA{Kind: "shrink_habit", Label: "Try the 7-day smaller version", Payload: habit}
 }
 
 func playbookChat(userID int64, userText string) (string, string, *CTA) {
 	state := diagnoseState(userID)
 	lower := strings.ToLower(userText)
-	if strings.Contains(lower, "routine") || strings.Contains(lower, "weekdays") {
-		return "Saved that as a routine. Confirm it as your official stack?", state, &CTA{Kind: "save_routine", Label: "Confirm this routine", Payload: userText}
+	cat := "mind"
+	if classifyHabit != nil {
+		cat = classifyHabit(userText)
 	}
-	if strings.Contains(lower, "skip") || strings.Contains(lower, "inconsist") || strings.Contains(lower, "fail") {
-		_, _ = db.Exec(`INSERT INTO agent_memories (user_id, kind, text) VALUES (?, 'blocker', ?)`, userID, userText)
-		return "That is a blocker, not a character flaw. Shrink it for 7 days?", state, &CTA{Kind: "shrink_habit", Label: "Shrink it for 7 days", Payload: userText}
+	label := map[string]string{"mind": "Mind", "money": "Money", "social_credit": "Social credit", "body": "Body"}[cat]
+	if label == "" {
+		label = "Mind"
 	}
-	return "Tell me the habit and when it usually breaks. I will save it and give one experiment.", state, nil
+	_, _ = db.Exec(`INSERT INTO agent_memories (user_id, kind, text) VALUES (?, 'note', ?)`, userID, userText)
+
+	switch {
+	case strings.Contains(lower, "hello") || strings.Contains(lower, "hi ") || lower == "hi" || strings.Contains(lower, "hey"):
+		return "Hey. I track four slices: mind, money, social credit, body. What are you trying to keep this week?", state, nil
+	case strings.Contains(lower, "why") || strings.Contains(lower, "mindset") || strings.Contains(lower, "analy"):
+		return "Mindset here means where your reps actually go. If one slice is empty for a week, that is the gap — not a personality defect. Name one action in the weak slice and I will watch it for 7 days.", state, &CTA{Kind: "shrink_habit", Label: "Watch this for 7 days", Payload: userText}
+	case strings.Contains(lower, "skip") || strings.Contains(lower, "can't") || strings.Contains(lower, "cannot") || strings.Contains(lower, "inconsist") || strings.Contains(lower, "fail") || strings.Contains(lower, "hard"):
+		return "Got it: “" + clip(userText, 80) + "”. That sits in " + label + ". Shrink it to 5 minutes for 7 days instead of quitting.", state, &CTA{Kind: "shrink_habit", Label: "Shrink it for 7 days", Payload: userText}
+	case strings.Contains(lower, "routine") || strings.Contains(lower, "every day") || strings.Contains(lower, "weekdays") || strings.Contains(lower, "plan"):
+		return "Saved that under " + label + ". Confirm it as the stack I should protect this week?", state, &CTA{Kind: "save_routine", Label: "Confirm this routine", Payload: userText}
+	default:
+		return "I filed that under " + label + ": “" + clip(userText, 90) + "”. One experiment: do a tiny version tomorrow at a fixed time. Confirm and I will treat it as a 7-day priority.", state, &CTA{Kind: "save_routine", Label: "Track this for 7 days", Payload: userText}
+	}
+}
+
+func clip(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 func coachReply(userID int64, userText string) (string, string, *CTA) {
-	if os.Getenv("GROQ_API_KEY") == "" {
+	key := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+	if key == "" {
+		log.Println("pace: no GROQ_API_KEY, using playbook")
 		return playbookChat(userID, userText)
 	}
-	reply, state, cta, err := groqCoach(userID, userText)
+	reply, state, cta, err := groqCoach(userID, userText, key)
 	if err != nil {
-		log.Println("groq coach fallback:", err)
+		log.Println("pace: groq failed, playbook:", err)
 		return playbookChat(userID, userText)
 	}
 	return reply, state, cta
@@ -175,41 +202,61 @@ type groqResp struct {
 	} `json:"error"`
 }
 
-func groqCoach(userID int64, userText string) (string, string, *CTA, error) {
+func groqCoach(userID int64, userText, key string) (string, string, *CTA, error) {
 	state := diagnoseState(userID)
 	base := os.Getenv("LLM_BASE_URL")
 	if base == "" {
 		base = "https://api.groq.com/openai/v1"
 	}
-	model := os.Getenv("LLM_MODEL")
-	if model == "" {
-		model = "openai/gpt-oss-20b"
+	models := []string{os.Getenv("LLM_MODEL"), "llama-3.1-8b-instant", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"}
+	system := "You are Pace, a private consistency coach in Chainpace. Always answer the user's last message directly. 2-5 short sentences. Classify as mind, money, social credit, or body when you can. One next action. Never shame. Optional last line: CTA: save_routine | Track this for 7 days"
+	var lastErr error
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		payload, _ := json.Marshal(groqReq{Model: model, Temperature: 0.5, Messages: []groqMsg{
+			{Role: "system", Content: system},
+			{Role: "user", Content: "Consistency state: " + state + "\nUser said: " + userText},
+		}})
+		req, err := http.NewRequest(http.MethodPost, strings.TrimRight(base, "/")+"/chat/completions", bytes.NewReader(payload))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("Authorization", "Bearer "+key)
+		req.Header.Set("Content-Type", "application/json")
+		res, err := (&http.Client{Timeout: 25 * time.Second}).Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		raw, _ := io.ReadAll(res.Body)
+		_ = res.Body.Close()
+		var parsed groqResp
+		_ = json.Unmarshal(raw, &parsed)
+		if parsed.Error != nil && parsed.Error.Message != "" {
+			lastErr = simpleError(parsed.Error.Message)
+			continue
+		}
+		if len(parsed.Choices) == 0 {
+			lastErr = simpleError(string(raw))
+			continue
+		}
+		content := strings.TrimSpace(parsed.Choices[0].Message.Content)
+		if content == "" {
+			lastErr = simpleError("empty groq content")
+			continue
+		}
+		cta := parseCTALine(&content)
+		log.Println("pace: groq ok model=", model)
+		return content, state, cta, nil
 	}
-	system := "You are Pace, a private consistency coach. 2-5 short sentences. One next action. Never shame. Optional last line: CTA: shrink_habit | Try the 7-day smaller version"
-	payload, _ := json.Marshal(groqReq{Model: model, Temperature: 0.4, Messages: []groqMsg{{Role: "system", Content: system}, {Role: "user", Content: "State: " + state + "\nUser: " + userText}}})
-	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(base, "/")+"/chat/completions", bytes.NewReader(payload))
-	if err != nil {
-		return "", state, nil, err
+	if lastErr == nil {
+		lastErr = simpleError("no groq model worked")
 	}
-	req.Header.Set("Authorization", "Bearer "+os.Getenv("GROQ_API_KEY"))
-	req.Header.Set("Content-Type", "application/json")
-	res, err := (&http.Client{Timeout: 25 * time.Second}).Do(req)
-	if err != nil {
-		return "", state, nil, err
-	}
-	defer res.Body.Close()
-	raw, _ := io.ReadAll(res.Body)
-	var parsed groqResp
-	_ = json.Unmarshal(raw, &parsed)
-	if parsed.Error != nil && parsed.Error.Message != "" {
-		return "", state, nil, simpleError(parsed.Error.Message)
-	}
-	if len(parsed.Choices) == 0 {
-		return "", state, nil, simpleError(string(raw))
-	}
-	content := strings.TrimSpace(parsed.Choices[0].Message.Content)
-	cta := parseCTALine(&content)
-	return content, state, cta, nil
+	return "", state, nil, lastErr
 }
 
 type simpleError string
@@ -225,7 +272,7 @@ func parseCTALine(content *string) *CTA {
 		if strings.HasPrefix(strings.ToUpper(trim), "CTA:") {
 			rest := strings.TrimSpace(trim[4:])
 			parts := strings.SplitN(rest, "|", 2)
-			kind, label := "shrink_habit", "Confirm this experiment"
+			kind, label := "save_routine", "Track this for 7 days"
 			if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
 				kind = strings.TrimSpace(parts[0])
 			}
