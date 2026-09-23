@@ -12,6 +12,8 @@ func agentProfileHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "Not authenticated")
 		return
 	}
+	_, _ = db.Exec(`UPDATE agent_routines SET active = 0 WHERE user_id = ? AND name IN ('Noted plan', 'Saved routine') AND length(habits_text) < 12`, me.ID)
+	_, _ = db.Exec(`UPDATE agent_routines SET active = 0 WHERE user_id = ? AND name = 'Noted plan'`, me.ID)
 	routines, _ := listRoutines(me.ID)
 	memories, _ := listMemories(me.ID)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -41,7 +43,6 @@ func agentChatHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Failed to save message")
 		return
 	}
-	maybeSaveRoutineFromText(me.ID, userText)
 	reply, state, cta := coachReply(me.ID, userText)
 	saved, err := insertAgentMessage(me.ID, "assistant", reply, state, cta)
 	if err != nil {
@@ -121,8 +122,9 @@ func agentCtaHandler(w http.ResponseWriter, r *http.Request) {
 	if req.Accept {
 		var kind, payload string
 		_ = db.QueryRow(`SELECT kind, payload FROM agent_ctas WHERE id = ?`, req.ID).Scan(&kind, &payload)
-		if kind == "save_routine" && payload != "" {
-			_, _ = db.Exec(`INSERT INTO agent_routines (user_id, name, habits_text) VALUES (?, ?, ?)`, me.ID, "Saved routine", payload)
+		if kind == "save_routine" && payload != "" && !looksLikeQuestion(payload) {
+			name := shortRoutineName(payload)
+			_, _ = db.Exec(`INSERT INTO agent_routines (user_id, name, habits_text) VALUES (?, ?, ?)`, me.ID, name, payload)
 		}
 		if payload != "" {
 			_, _ = db.Exec(`INSERT INTO agent_memories (user_id, kind, text) VALUES (?, 'commitment', ?)`, me.ID, payload)
