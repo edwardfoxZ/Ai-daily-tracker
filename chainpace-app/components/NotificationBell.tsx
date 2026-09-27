@@ -20,7 +20,10 @@ export default function NotificationBell() {
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+          markAllRead();
+        }}
         className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-dim hover:border-violet-dark hover:text-ink dark:border-border-dark dark:bg-surface-dark dark:text-dim-dark"
         aria-label="Notifications"
       >
@@ -38,11 +41,6 @@ export default function NotificationBell() {
         <div className="absolute right-0 z-40 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-surface shadow-lg dark:border-border-dark dark:bg-surface-dark">
           <div className="flex items-center justify-between border-b border-bordersoft px-3 py-2 dark:border-bordersoft-dark">
             <span className="text-[12px] font-semibold">Notifications</span>
-            {unread > 0 && (
-              <button type="button" onClick={markAllRead} className="text-[11px] text-violet-bright">
-                Mark read
-              </button>
-            )}
           </div>
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
@@ -53,7 +51,7 @@ export default function NotificationBell() {
                   key={n.id}
                   href={n.href || "/dashboard"}
                   onClick={() => setOpen(false)}
-                  className={`block border-b border-bordersoft px-3 py-2.5 last:border-none hover:bg-surface2 dark:border-bordersoft-dark ${n.read ? "" : "bg-violet-dark/5"}`}
+                  className="block border-b border-bordersoft px-3 py-2.5 last:border-none hover:bg-surface2 dark:border-bordersoft-dark"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-[12.5px] font-semibold">{n.title}</div>

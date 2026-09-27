@@ -42,8 +42,21 @@ interface Ctx {
 }
 
 const NotificationsContext = createContext<Ctx | null>(null);
-const KEY = "chainpace_notices_v2";
-const SEEN = "chainpace_notice_seen_v2";
+const KEY = "chainpace_notices_v3";
+const SEEN = "chainpace_notice_seen_v3";
+const FIRED = "chainpace_notice_fired_v3";
+
+function firedSet(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(FIRED) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveFired(s: Set<string>) {
+  localStorage.setItem(FIRED, JSON.stringify([...s].slice(-80)));
+}
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const chain = useChainpace();
@@ -61,7 +74,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) {
+        const parsed: Notice[] = JSON.parse(raw);
+        setItems(parsed.map((n) => ({ ...n, read: true })));
+      }
       const s = localStorage.getItem(SEEN);
       if (s) seen.current = { ...seen.current, ...JSON.parse(s) };
     } catch {
@@ -77,6 +93,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const push = useCallback((n: Omit<Notice, "id" | "at" | "read"> & { id?: string }) => {
     const id = n.id || `${n.kind}-${Date.now()}`;
+    const fired = firedSet();
+    if (fired.has(id)) return;
+    fired.add(id);
+    saveFired(fired);
     setItems((prev) => {
       if (prev.some((x) => x.id === id)) return prev;
       return [{ ...n, id, at: Date.now(), read: false }, ...prev].slice(0, 30);
@@ -96,21 +116,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       });
     };
     window.addEventListener("chainpace:notify", onCustom);
-    window.addEventListener("chainpace:habits-changed", () =>
-      push({ kind: "habit", title: "Habit saved", body: "Written on-chain.", href: "/habits" }),
-    );
-    return () => {
-      window.removeEventListener("chainpace:notify", onCustom);
-    };
+    return () => window.removeEventListener("chainpace:notify", onCustom);
   }, [push]);
 
   useEffect(() => {
     if (!chain.ready) return;
     if (!primed.current) {
-      seen.current.incoming = chain.incoming.length;
-      seen.current.points = chain.points;
-      seen.current.comps = chain.competitions.length;
-      seen.current.habits = chain.habits.length;
+      seen.current.incoming = Math.max(seen.current.incoming, chain.incoming.length);
+      seen.current.points = Math.max(seen.current.points, chain.points);
+      seen.current.comps = Math.max(seen.current.comps, chain.competitions.length);
+      seen.current.habits = Math.max(seen.current.habits, chain.habits.length);
       primed.current = true;
       persistSeen();
       return;
@@ -118,7 +133,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (chain.incoming.length > seen.current.incoming) {
       const newest = chain.incoming[chain.incoming.length - 1];
       push({
-        id: `friend-${newest}-${chain.incoming.length}`,
+        id: `friend-${newest}`,
         kind: "friend",
         title: "Friend request",
         body: `${shortAddr(newest)} sent you a request.`,
