@@ -4,43 +4,20 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { UserProvider } from "@/lib/user-context";
 import { NotificationsProvider } from "@/lib/notifications";
 import SessionSync from "@/components/SessionSync";
+import CookieBanner from "@/components/CookieBanner";
 import "./globals.css";
 
-const display = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-display",
-});
-
-const body = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-body",
-});
-
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
-});
+const display = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-display" });
+const body = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-body" });
+const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: "Chainpace",
-  description:
-    "Proof-of-habit, on-chain. Build routines with people who hold you to it.",
+  description: "Proof-of-habit, on-chain. Build routines with people who hold you to it.",
 };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, maximumScale: 1 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${display.variable} ${body.variable} ${mono.variable} font-body`}>
@@ -49,6 +26,7 @@ export default function RootLayout({
             <NotificationsProvider>
               <SessionSync />
               {children}
+              <CookieBanner />
             </NotificationsProvider>
           </UserProvider>
         </ThemeProvider>
