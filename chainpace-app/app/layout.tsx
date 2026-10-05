@@ -5,6 +5,7 @@ import { UserProvider } from "@/lib/user-context";
 import { NotificationsProvider } from "@/lib/notifications";
 import SessionSync from "@/components/SessionSync";
 import CookieBanner from "@/components/CookieBanner";
+import LoginGoogleSlot from "@/components/LoginGoogleSlot";
 import "./globals.css";
 
 const display = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-display" });
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <NotificationsProvider>
               <SessionSync />
               {children}
+              <LoginGoogleSlot />
               <CookieBanner />
             </NotificationsProvider>
           </UserProvider>
