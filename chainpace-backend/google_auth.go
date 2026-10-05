@@ -10,18 +10,14 @@ import (
 )
 
 type googleTokenInfo struct {
-	Email         string `json:"email"`
-	EmailVerified string `json:"email_verified"`
-	Aud           string `json:"aud"`
-	Name          string `json:"name"`
-	Sub           string `json:"sub"`
-	Error         string `json:"error_description"`
+	Email string `json:"email"`
+	Aud   string `json:"aud"`
+	Sub   string `json:"sub"`
 }
 
 func googleAuthHandler(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Credential string `json:"credential"`
-		Username   string `json:"username"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.Credential) == "" {
 		writeError(w, http.StatusBadRequest, "credential is required")
@@ -36,51 +32,47 @@ func googleAuthHandler(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 	var info googleTokenInfo
 	_ = json.NewDecoder(resp.Body).Decode(&info)
-	if info.Email == "" {
+	email := strings.ToLower(strings.TrimSpace(info.Email))
+	if email == "" {
 		writeError(w, http.StatusUnauthorized, "Invalid Google token")
 		return
 	}
-	want := os.Getenv("GOOGLE_CLIENT_ID")
-	if want != "" && info.Aud != want {
+	if want := os.Getenv("GOOGLE_CLIENT_ID"); want != "" && info.Aud != want {
 		writeError(w, http.StatusUnauthorized, "Google client mismatch")
 		return
 	}
-	email := strings.ToLower(strings.TrimSpace(info.Email))
-	user, err := FindUserByEmail(email)
+	var id int64
+	var username string
+	err = db.QueryRow(`SELECT id, username FROM users WHERE lower(email) = lower(?)`, email).Scan(&id, &username)
 	if err != nil {
-		username := strings.TrimSpace(req.Username)
-		if username == "" {
-			base := strings.Split(email, "@")[0]
-			username = base
-			for i := 0; i < 5; i++ {
-				if taken, _ := UsernameTaken(username); !taken {
-					break
-				}
-				username = fmt.Sprintf("%s%d", base, i+2)
+		base := strings.Split(email, "@")[0]
+		username = base
+		for i := 0; i < 6; i++ {
+			var n int
+			_ = db.QueryRow(`SELECT COUNT(*) FROM users WHERE username = ?`, username).Scan(&n)
+			if n == 0 {
+				break
 			}
+			username = fmt.Sprintf("%s%d", base, i+2)
 		}
-		user, err = CreateUser(username, email, "", "google:"+info.Sub)
+		res, err := db.Exec(`INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)`, username, email, "google:"+info.Sub)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+			writeError(w, http.StatusBadRequest, "Could not create Google user")
 			return
 		}
+		id, _ = res.LastInsertId()
 	}
-	token, err := generateToken(user.ID, user.Username)
+	token, err := generateToken(id, username)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Could not sign in")
 		return
 	}
 	setAuthCookie(w, token)
-	writeJSON(w, http.StatusOK, map[string]interface{}{"user": publicUser(user)})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"user": map[string]interface{}{"id": id, "username": username, "email": email}})
 }
 
 func setAuthCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   60 * 60 * 24 * 7,
+		Name: "token", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 60 * 60 * 24 * 7,
 	})
 }
