@@ -70,9 +70,3 @@ func googleAuthHandler(w http.ResponseWriter, r *http.Request) {
 	setAuthCookie(w, token)
 	writeJSON(w, http.StatusOK, map[string]interface{}{"user": map[string]interface{}{"id": id, "username": username, "email": email}})
 }
-
-func setAuthCookie(w http.ResponseWriter, token string) {
-	http.SetCookie(w, &http.Cookie{
-		Name: "token", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 60 * 60 * 24 * 7,
-	})
-}
