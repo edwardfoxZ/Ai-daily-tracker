@@ -11,7 +11,6 @@ import (
 func jwtSecret() []byte {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		// dev fallback only — always set JWT_SECRET as a real env var in production
 		secret = "dev_only_insecure_secret_change_me"
 	}
 	return []byte(secret)
@@ -28,7 +27,7 @@ func generateToken(userID int64, username string) (string, error) {
 		UserID:   userID,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(4 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

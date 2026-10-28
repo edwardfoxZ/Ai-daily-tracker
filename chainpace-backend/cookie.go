@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+const cookieMaxAge = 60 * 60 * 24 * 4
+
 func setAuthCookie(w http.ResponseWriter, token string) {
 	secure := os.Getenv("COOKIE_SECURE") == "1" || os.Getenv("RENDER") == "true"
 	same := http.SameSiteLaxMode
@@ -18,6 +20,6 @@ func setAuthCookie(w http.ResponseWriter, token string) {
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: same,
-		MaxAge:   60 * 60 * 24 * 7,
+		MaxAge:   cookieMaxAge,
 	})
 }
