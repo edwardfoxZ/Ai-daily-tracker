@@ -21,7 +21,9 @@ export default function WalletConnectButton() {
       await web3.switchChain("seiTestnet").catch(() => {});
       const addr = (window as any).__chainpaceAddr as string | undefined;
       const address = addr || web3.address;
-      const accounts = await window.ethereum?.request?.({ method: "eth_accounts" });
+      const accounts = await window.ethereum?.request?.({
+        method: "eth_accounts",
+      });
       const walletAddress = accounts?.[0] || address;
       if (!walletAddress) {
         setErr("Wallet connected but no address returned.");
@@ -41,7 +43,12 @@ export default function WalletConnectButton() {
 
   if (web3.isConnected && web3.address) {
     return (
-      <button type="button" onClick={() => web3.disconnect()} className="rounded-full border border-border px-3 py-1.5 font-mono text-xs font-semibold dark:border-border-dark" title="Disconnect">
+      <button
+        type="button"
+        onClick={() => web3.disconnect()}
+        className="rounded-full border border-border px-3 py-1.5 font-mono text-xs font-semibold dark:border-border-dark"
+        title="Disconnect"
+      >
         {shortAddr(web3.address)}
       </button>
     );
@@ -49,11 +56,19 @@ export default function WalletConnectButton() {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="rounded-full bg-violet-dark px-3 py-1.5 text-xs font-semibold text-white active:scale-95">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full rounded-full bg-violet-dark px-3 py-1.5 text-xs font-semibold text-white active:scale-95"
+      >
         {web3.isConnecting ? "Connecting…" : "Connect wallet"}
       </button>
       {err && <span className="sr-only">{err}</span>}
-      <WalletPicker open={open} onClose={() => setOpen(false)} onPick={(id) => pick(id as WalletId)} />
+      <WalletPicker
+        open={open}
+        onClose={() => setOpen(false)}
+        onPick={(id) => pick(id as WalletId)}
+      />
     </>
   );
 }

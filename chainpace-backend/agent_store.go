@@ -126,9 +126,9 @@ func clip(s string, n int) string {
 }
 
 func coachReply(userID int64, userText string) (string, string, *CTA) {
-	key := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+	key := strings.TrimSpace(os.Getenv("SEPTOR_API_KEY"))
 	if key == "" {
-		log.Println("pace: no GROQ_API_KEY, using playbook")
+		log.Println("pace: no SEPTOR_API_KEY, using playbook")
 		return playbookChat(userID, userText)
 	}
 	reply, state, cta, err := groqCoach(userID, userText, key)
@@ -163,9 +163,9 @@ func groqCoach(userID int64, userText, key string) (string, string, *CTA, error)
 	state := diagnoseState(userID)
 	base := os.Getenv("LLM_BASE_URL")
 	if base == "" {
-		base = "https://api.groq.com/openai/v1"
+		base = "https://api.septorlabs.com/v1"
 	}
-	models := []string{os.Getenv("LLM_MODEL"), "llama-3.1-8b-instant", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"}
+	models := []string{os.Getenv("LLM_MODEL")}
 	system := "You are Pace. Answer the last message directly. If it is a question, answer it. Do not invent a new habit unless the user stated one. 2-5 short sentences. Never shame."
 	var lastErr error
 	for _, model := range models {
