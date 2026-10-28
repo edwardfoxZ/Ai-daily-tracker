@@ -7,11 +7,12 @@ import ThemeToggle from "@/components/ThemeToggle";
 import WalletConnectButton from "@/components/WalletConnectButton";
 import GoogleSignIn from "@/components/GoogleSignIn";
 import { useUser } from "@/lib/user-context";
-import { walletAuth, requestOtp, verifyOtp, login as passwordLogin, ApiError } from "@/lib/api";
+import { walletAuth, requestOtp, verifyOtp, login as passwordLogin, signup, ApiError } from "@/lib/api";
 
-type Step = "home" | "otp" | "otp-code" | "otp-username" | "password" | "wallet-name";
+type Step = "home" | "signup" | "otp" | "otp-code" | "otp-username" | "password" | "wallet-name";
 
 type PasswordForm = { identifier: string; password: string };
+type SignupForm = { username: string; email: string; password: string };
 type EmailForm = { email: string };
 type CodeForm = { code: string };
 type NameForm = { username: string };
@@ -29,6 +30,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   const passwordForm = useForm<PasswordForm>();
+  const signupForm = useForm<SignupForm>();
   const emailForm = useForm<EmailForm>();
   const codeForm = useForm<CodeForm>();
   const nameForm = useForm<NameForm>();
@@ -61,6 +63,19 @@ export default function LoginPage() {
     setError(null);
     try {
       await walletAuth({ walletAddress: walletAddr, username: username.trim() });
+      await done();
+    } catch (e: any) {
+      setError(e instanceof ApiError ? e.message : e?.message || "Could not create account");
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  const doSignup = signupForm.handleSubmit(async ({ username, email: rawEmail, password }) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await signup({ username: username.trim(), email: rawEmail.trim(), password });
       await done();
     } catch (e: any) {
       setError(e instanceof ApiError ? e.message : e?.message || "Could not create account");
@@ -146,12 +161,24 @@ export default function LoginPage() {
         {step === "home" && (
           <div className="space-y-3">
             <h1 className="font-display text-[28px] font-semibold">Sign in</h1>
-            <p className="text-[14px] text-dim">Google, wallet, or email. Session cookie lasts 4 days.</p>
+            <p className="text-[14px] text-dim">Google, phone wallet, or email. Session lasts 4 days.</p>
             <GoogleSignIn onSuccess={done} />
             <WalletConnectButton onConnected={afterWallet} />
+            <button type="button" onClick={() => setStep("signup")} className="w-full rounded-xl bg-violet-dark py-3.5 text-sm font-semibold text-white">Create account</button>
             <button type="button" onClick={() => setStep("otp")} className="w-full rounded-xl border border-border py-3.5 text-sm font-semibold dark:border-border-dark">Email one-time code</button>
             <button type="button" onClick={() => setStep("password")} className="w-full text-center text-[13px] text-faint underline">Use password instead</button>
           </div>
+        )}
+
+        {step === "signup" && (
+          <form onSubmit={doSignup} className="space-y-3">
+            <button type="button" onClick={() => setStep("home")} className="text-sm text-faint">← Back</button>
+            <h1 className="font-display text-[24px] font-semibold">Create account</h1>
+            <input {...signupForm.register("username", { required: true, minLength: 3 })} placeholder="username" className={field} />
+            <input {...signupForm.register("email", { required: true, pattern: /.+@.+/ })} type="email" placeholder="you@email.com" className={field} />
+            <input {...signupForm.register("password", { required: true, minLength: 6 })} type="password" placeholder="password (6+ chars)" className={field} />
+            <button disabled={busy} className="w-full rounded-xl bg-violet-dark py-3 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Creating…" : "Sign up"}</button>
+          </form>
         )}
 
         {step === "otp" && (

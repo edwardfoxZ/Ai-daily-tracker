@@ -6,10 +6,10 @@ import { createPortal } from "react-dom";
 type Props = { open: boolean; onClose: () => void; onPick: (id: string) => void };
 
 const WALLETS = [
+  { id: "walletconnect", name: "WalletConnect", hint: "Phone wallet · QR or app", color: "#3b99fc", mark: "WC" },
   { id: "metamask", name: "MetaMask", hint: "Browser extension", color: "#f6851b", mark: "M" },
   { id: "coinbase", name: "Coinbase Wallet", hint: "Extension", color: "#0052ff", mark: "C" },
   { id: "injected", name: "Browser wallet", hint: "Brave, Rabby, OKX", color: "#7c5cfc", mark: "W" },
-  { id: "phantom", name: "Phantom", hint: "Solana", color: "#ab9ff2", mark: "P" },
 ];
 
 export default function WalletPicker({ open, onClose, onPick }: Props) {
@@ -34,7 +34,7 @@ export default function WalletPicker({ open, onClose, onPick }: Props) {
             </button>
           ))}
         </div>
-        <p className="mt-3 text-[11px] text-faint">Wallet-only login creates an account. Google users get the wallet linked to the same account.</p>
+        <p className="mt-3 text-[11px] text-faint">On a phone, pick WalletConnect. It opens MetaMask or Trust, you sign there, then this page continues.</p>
       </div>
     </div>,
     document.body,
