@@ -1,192 +1,205 @@
 <div align="center">
 
-# ⚡ Chainpace
+# Chainpace
 
-**A modern, on-chain habit tracker that connects you to people who hold you accountable.**
+On-chain habit tracker with a private coach, friends, and a signed message thread.
 
-Build routines, log verified proof of your work, and let AI cross-check your consistency against real clinical and behavioral research — all backed by your own wallet.
-
-[![TypeScript](https://img.shields.io/badge/TypeScript-89.8%25-3178C6?logo=typescript&logoColor=white)](.)
-[![Go](https://img.shields.io/badge/Go-9.9%25-00ADD8?logo=go&logoColor=white)](.)
-[![Solidity](https://img.shields.io/badge/Solidity-^0.8.24-363636?logo=solidity&logoColor=white)](.)
-[![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=next.js&logoColor=white)](.)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](./LICENSE)
+Next.js app + Go API + Solidity contract on Sei Testnet.
 
 </div>
 
----
+## What the project is
 
-## ✨ What is Chainpace?
+Chainpace has three layers. They do different jobs on purpose.
 
-Chainpace is a habit-tracking web app built around one idea: **habits are easier to keep when someone else can verify them.**
-
-- 🔗 **Wallet-based identity** — sign up with a crypto wallet, or email/phone with an optional wallet link
-- 🧠 **AI-backed proof scoring** — your consistency is checked against published clinical & psychology research, not just a checkbox
-- 📊 **Real tracking** — daily, weekly, and monthly completion charts, streaks, and a proof score out of 100
-- 🏆 **Social accountability** — friends, mentors, leaderboards, and head-to-head competitions
-- ⛓️ **On-chain verifiable habits** — habit creation, completions, streaks, and rewards are tracked in a smart contract, not just a database
-
----
-
-## 🖥️ Preview
-
-| Login & Wallet Connect | Dashboard | Messages / Mentor |
-|:---:|:---:|:---:|
-| _Wallet, email, or phone sign-in_ | _Streaks, charts, competitions, leaderboard_ | _Chat with friends & research-backed mentor tips_ |
-
-*(Add screenshots or a demo GIF here once you have them — drop them in a `/docs` or `/assets` folder and reference them above.)*
-
----
-
-## 🏗️ Project structure
-
-This is a monorepo with three independent projects, each deployed separately:
-
-```
-Ai-daily-tracker/
-├── chainpace-app/         # Frontend — Next.js 14 + TypeScript + Tailwind CSS
-├── chainpace-backend/     # Backend — Go + SQLite (auth, sessions, users)
-└── chainpace-contracts/   # Smart contracts — Solidity + Hardhat
-```
-
-| Layer | Handles |
+| Folder | Job |
 |---|---|
-| **`chainpace-app`** | UI, wallet connection (`useWeb3`), all pages, talks to both the backend and the smart contract |
-| **`chainpace-backend`** | Email/phone signup & login, session cookies (JWT), username lookups — deliberately **not** on-chain |
-| **`chainpace-contracts`** | Habits, streaks, proof scores, friends, competitions, rewards — all trustlessly verifiable on-chain |
+| `chainpace-app` | The website. Pages, wallet UI, charts, coach chat. |
+| `chainpace-backend` | Accounts, cookies, messages, Pace memory. SQLite. |
+| `chainpace-contracts` | Habits, streaks, friends, competitions, points. The source of truth for on-chain habits. |
 
----
+On-chain data stays on the contract. The coach and DMs stay off-chain so the AI can remember without writing every sentence to a chain.
 
-## 🧰 Tech stack
+## How a request moves
 
-**Frontend**
-- Next.js 14 (App Router) + TypeScript
-- Tailwind CSS with a custom dark/light design system (violet + glow accents)
-- `ethers.js` for wallet & contract interaction
+1. Browser opens a Next.js page (`chainpace-app/app/...`).
+2. The page uses `useChainpace()` to read the contract through `ethers`.
+3. Account stuff (login, DMs, coach) goes to the Go server at `/api/...` with the `chainpace_token` cookie.
+4. The Go server checks the JWT, then reads or writes SQLite.
 
-**Backend**
-- Go (`net/http`, no framework)
-- SQLite (`modernc.org/sqlite`, pure Go, no CGO)
-- `bcrypt` for password hashing, JWT for sessions
+```
+Browser
+  |-- wallet + contract calls --> Sei Testnet (ChainpaceCore)
+  `-- cookie + fetch /api/* --> Go server --> chainpace.db
+```
 
-**Smart contracts**
-- Solidity `^0.8.24`
-- Hardhat (TypeScript project) for compiling, testing, and deploying
-- Designed for any EVM chain (tested locally on Ganache/Hardhat network)
-
----
-
-## 🚀 Getting started
-
-### Prerequisites
-
-- Node.js 18+
-- Go 1.22+
-- [Ganache](https://trufflesuite.com/ganache/) or Hardhat's built-in local network (for contract testing)
-- MetaMask (or another EVM wallet extension)
-
-### 1. Clone the repo
+## Run it
 
 ```bash
 git clone https://github.com/edwardfoxZ/Ai-daily-tracker.git
 cd Ai-daily-tracker
-```
 
-### 2. Smart contracts
+# contracts
+cd chainpace-contracts && npm install
+npx hardhat run scripts/deploy.ts --network seiTestnet
 
-```bash
-cd chainpace-contracts
-npm install
-npx hardhat test               # run the full test suite
-npx hardhat run scripts/deploy.ts --network ganache
-```
-
-Copy the deployed contract address — you'll need it in step 4.
-
-### 3. Backend (Go + SQLite)
-
-```bash
+# backend
 cd ../chainpace-backend
-go mod tidy
+cp .env.example .env   # then fill secrets
 go run .
-```
 
-Runs at `http://localhost:8080`. No external database setup required — SQLite creates `chainpace.db` automatically on first run.
-
-Set a real JWT secret before doing anything beyond local testing:
-```bash
-export JWT_SECRET="a-long-random-string"
-```
-
-### 4. Frontend (Next.js)
-
-```bash
+# frontend
 cd ../chainpace-app
-npm install
 cp .env.local.example .env.local
+npm install && npm run dev
 ```
 
-Fill in `.env.local`:
+Frontend: `http://localhost:3000`. Backend: `http://localhost:8080`.
+
+### Env
+
+Backend `chainpace-backend/.env`:
+
+```
+JWT_SECRET=long-random-string
+GROQ_API_KEY=gsk_...
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_MODEL=llama-3.1-8b-instant
+GOOGLE_CLIENT_ID=....apps.googleusercontent.com
+```
+
+Frontend `chainpace-app/.env.local`:
+
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_CONTRACT_ADDRESS=0xYourDeployedContractAddress
+NEXT_PUBLIC_CONTRACT_ADDRESS=0xYourContract
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=....apps.googleusercontent.com
 ```
 
-```bash
-npm run dev
+Use the **same** Google client id in both files. Add `http://localhost:3000` as an authorized JavaScript origin in Google Cloud.
+
+## Login
+
+Three ways in. All end as a JWT in the `chainpace_token` httpOnly cookie (`cookie.go`).
+
+1. **Google** — `GoogleSignIn.tsx` loads Google Identity Services, posts the id token to `POST /api/auth/google`. `google_auth.go` checks the token with Google, creates a user if the email is new, then sets the cookie.
+2. **Email / username** — existing signup and login handlers in the backend.
+3. **Wallet only** — `WalletConnectButton` calls `web3.connect(walletId)`, then `POST /api/auth/wallet`. That creates a session without Google.
+
+If you are already signed in with Google and then connect a wallet, the button calls `linkWallet()` so the same account gets the address. Chain features need that address. MetaMask opening is not enough; `useWeb3.connect()` must store it.
+
+`SessionSync.tsx` logs a wallet-based session out if the connected address changes or disappears.
+
+Cookie banner: `CookieBanner.tsx` in the root layout. Accept stores a flag so it does not show again.
+
+## Wallet
+
+`WalletPicker.tsx` is a modal (RainbowKit-style list, not the RainbowKit package). It lists MetaMask, Coinbase, browser wallet, Phantom.
+
+`useWeb3.ts` is the real connector. It requests accounts, builds an ethers `BrowserProvider`, saves `chainpace_wallet_session`, and exposes `address`, `chain`, `connect`, `disconnect`, `switchChain`.
+
+Habits and friends only work when:
+
+- a wallet is connected,
+- the chain is Sei Testnet (`0x530`, chain id 1328),
+- `NEXT_PUBLIC_CONTRACT_ADDRESS` is set.
+
+`NewHabitButton` opens `NewHabitModal` through a portal on `document.body`, so the sidebar does not clip it.
+
+## On-chain habits
+
+`useChainpace.ts` calls `ChainpaceCore`:
+
+- create / complete / deactivate a habit
+- streak, weekly completion, proof score, points
+- friend requests, competitions, circle scores
+
+The dashboard and habits page read this hook. Checking a habit also posts `/api/agent/event` so Pace can see the completion.
+
+## Pace (the coach)
+
+Pace is a pinned thread in Messages, not a new page. User id `0`.
+
+Backend files:
+
+| File | What it does |
+|---|---|
+| `agent.go` | Types and the thread handler. |
+| `agent_handlers.go` | Chat, events, CTA accept/decline. |
+| `agent_store.go` | Messages, routines, memories, Groq call. |
+| `agent_playbook.go` | Fallback when Groq is missing or blocked. |
+| `agent_mindset.go` | Splits habits into mind / money / social / body. |
+| `coach_plans.go` | Saves a plan when you say when you want a habit. |
+
+Flow:
+
+1. You type in Messages.
+2. `agentChatHandler` saves your line, calls `coachReply`.
+3. If `GROQ_API_KEY` is set, `groqCoach` tries Groq. If it fails, `playbookChat` answers.
+4. A reply can include a CTA (save routine / shrink habit). Confirm writes a routine or a commitment.
+5. Saying "I want to gym at 7am on weekdays" creates a row in `coach_plans` and a routine.
+
+Questions are not saved as habits. Old junk chips named "Noted plan" are deactivated on profile load.
+
+## Messages
+
+`/messages` selects nothing. Click Pace or a friend, then the URL becomes `/messages/{id}/{sig}`.
+
+`sig` is the first 24 hex chars of HMAC-SHA256 of the pair of user ids, keyed by `JWT_SECRET` (`threadsig.go`). Guessing an id is not enough. You still must be logged in as one of the two people.
+
+The thread pane scrolls. The composer and Send stay pinned.
+
+## Dashboard and tracking
+
+Dashboard: streak, weekly %, proof score, rank, today's habits, competition, circle, plus `MindsetPanel` (7+ day priorities and category bars).
+
+Tracking: SVG line chart with `1d` / `1w` / `1m`. The curve is built from weekly completion, streak, and today's done count. It is a view of current on-chain numbers, not a stored time series yet.
+
+## Notifications
+
+`lib/notifications.tsx` watches chain changes and new DMs. Each event id is stored so a refresh does not fire the same red badge again. Opening the bell marks items read. Old stored items load as already read.
+
+## Backend map
+
+`main.go` registers routes. Important ones:
+
+```
+POST /api/auth/signup|login|wallet|google
+GET  /api/auth/me
+GET  /api/messages            ?with=
+POST /api/messages
+GET  /api/thread-link         ?with=
+GET  /api/thread-open         ?id=&sig=
+GET  /api/agent/thread
+POST /api/agent/chat
+POST /api/agent/event
+POST /api/agent/cta
+GET  /api/agent/mindset
+GET  /api/agent/plans
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — it redirects to `/login`.
+`envload.go` reads `.env` and strips a UTF-8 BOM so a Windows-saved key still loads.
 
----
+## Frontend map
 
-## 🔑 Core features
+```
+app/login          sign in
+app/dashboard      stats + mindset
+app/habits         on-chain habits
+app/tracking       1d/1w/1m chart
+app/messages       inbox, no thread selected
+app/messages/[id]/[sig]   one signed thread
+app/friends        on-chain friends
+app/competitions   challenges
+app/rewards        points
+app/profile        account
+```
 
-### Authentication
-- Wallet-only signup (connect → choose username)
-- Email or phone signup (username + password), with an optional wallet link afterward
-- Session handled via an httpOnly JWT cookie from the Go backend
-- Auto-logout when the connected wallet disconnects or switches accounts
+Shared UI lives in `components/`. `AppShell` is the sidebar + top bar. `lib/api.ts` is the fetch client (sends the cookie).
 
-### Dashboard
-- Current streak, weekly completion %, AI proof score, and circle rank
-- Daily / weekly / monthly tracking chart
-- Today's plans & habits with live on-chain completion toggles
-- Active competitions vs. friends, friends leaderboard, and rewards feed
+## What is still rough
 
-### Messages
-- Chat with friends who've accepted your request
-- Dedicated mentor thread with research-backed tip cards and inline proof cards
-
-### Smart contract (`ChainpaceCore.sol`)
-- `createHabit`, `logCompletion`, `deactivateHabit`
-- `getCurrentStreak`, `getBestStreak`, `getWeeklyCompletionBps`, `getProofScore`
-- `sendFriendRequest` / `acceptFriendRequest` / `getFriends`
-- `createCompetition` / `resolveCompetition`
-- On-chain points & badge system (`getPoints`, `hasBadge`)
-
----
-
-## 🗺️ Roadmap
-
-- [ ] iOS & Android apps
-- [ ] AI-generated habit insights fed by real ML model (currently rule-based)
-- [ ] IPFS-backed proof storage for habit completions
-- [ ] Migrate backend to Postgres for production persistence
-- [ ] Mainnet / L2 deployment (Base or Polygon)
-
----
-
-## 🤝 Contributing
-
-This is currently a solo project in active development. Issues and suggestions are welcome — open an issue before submitting a large PR.
-
-## 📄 License
-
-Licensed under [GPL-3.0](./LICENSE).
-
----
-
-<div align="center">
-<sub>Built with Next.js, Go, and Solidity — because your habits deserve more than a checkbox.</sub>
-</div>
+- Groq can be blocked by network. Pace then uses the playbook. Check the Go log for `pace: groq ok` or `pace: groq failed`.
+- Tracking chart is derived, not a real history table.
+- Wallet picker is not RainbowKit. Full RainbowKit needs a WalletConnect Cloud project id.
+- Google needs both client-id env vars and the correct authorized origin.
