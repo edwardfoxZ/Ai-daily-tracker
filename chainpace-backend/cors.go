@@ -10,7 +10,7 @@ func allowOrigin(origin string) bool {
 	if origin == "" {
 		return false
 	}
-	if origin == "http://localhost:3000" || origin == "https://esthertrackerai.vercel.app" {
+	if origin == "http://localhost:3000" || origin == "https://esthertrackerai.vercel.app" || origin == "https://esthertrackerai-frujvpbv0-edwardfoxzs-projects.vercel.app" {
 		return true
 	}
 	if extra := os.Getenv("CORS_ORIGIN"); extra != "" {
@@ -33,6 +33,7 @@ func allowOrigin(origin string) bool {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
+
 		if allowOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
